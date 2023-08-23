@@ -1,7 +1,10 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Text;
 using DesktopImageChanger.Properties;
+using Microsoft.Win32;
+using Windows.Devices.Spi;
 
 namespace DesktopImageChanger
 {
@@ -12,6 +15,11 @@ namespace DesktopImageChanger
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, String pvParam, SPIF fWinIni);
 
+        // For reading a string parameter
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
+
         static void Main(string[] args)
         {
             /*
@@ -19,12 +27,27 @@ namespace DesktopImageChanger
              */
             var day = Bitmap.FromStream(new MemoryStream(Resources.EarthDay));
             var night = Bitmap.FromStream(new MemoryStream(Resources.EarthNight));
-            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage" + ".jpg");
+
+            /*
+             *  Get current desktop wallpaper name
+             */
+            var sbWPFN = new StringBuilder(256);
+            SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
+            var wpfn = sbWPFN.ToString();
+
+            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage01" + ".jpg");
+            if (String.Compare(fileName, wpfn, true) == 0)
+            {
+                if (wpfn.EndsWith("01.jpg", StringComparison.InvariantCultureIgnoreCase))
+                    fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage02" + ".jpg");
+                else
+                    fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage01" + ".jpg");
+            }
 
             /*
              * Prepares the clip area
              */
-            var pts = new List<Point>(new Point[] 
+            var pts = new List<PointF>(new PointF[] 
             {
                 new Point(night.Width, 0)
                ,new Point(0,0)
@@ -73,18 +96,18 @@ namespace DesktopImageChanger
              */
             var MaxDeclination = 23.44;
             var declination = Trig.Sin(360 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
-            var y0 = day.Height / 2;
-            var x0 = day.Width / 2;
-            var xs = day.Width / 360;
-            var ys = day.Height / 180;
+            var y0 = (float)day.Height / 2;
+            var x0 = (float)day.Width / 2;
+            var xs = (float)day.Width / 360;
+            var ys = (float)day.Height / 180;
             for (var a = -180; a <= 180; a++)
             {
                 var longitude = a + TimeOffset;
                 var tanLat = -Trig.Cos(longitude) / Trig.Tan(declination);
                 var arctanLat = Trig.Atan(tanLat);
-                var y = y0 + (int)Math.Round(arctanLat * ys);
+                var y = y0 + (float)(arctanLat * ys);
                 var x = x0 + (a * xs);
-                pts.Add(new Point(x, y));
+                pts.Add(new PointF(x, y));
             }
             pts.Add(new Point(night.Width, 0));
 
@@ -110,7 +133,16 @@ namespace DesktopImageChanger
             /*
              * Sets the desktop image
              */
-            SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.SendChange);
+            SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
+
+            /*
+             * Deletes the previous wallpaper file
+             */
+            try
+            {
+                File.Delete(wpfn);
+            }
+            catch { }
         }
 
         /// <summary>
