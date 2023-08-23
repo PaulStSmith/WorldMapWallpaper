@@ -36,7 +36,7 @@ namespace DesktopImageChanger
             var wpfn = sbWPFN.ToString();
 
             var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage01" + ".jpg");
-            if (String.Compare(fileName, wpfn, true) == 0)
+            if (Path.GetFileName(wpfn).StartsWith("DesktopImage",StringComparison.InvariantCultureIgnoreCase))
             {
                 if (wpfn.EndsWith("01.jpg", StringComparison.InvariantCultureIgnoreCase))
                     fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage02" + ".jpg");
