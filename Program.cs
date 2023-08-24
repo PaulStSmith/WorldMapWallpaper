@@ -43,6 +43,10 @@ namespace DesktopImageChanger
                 else
                     fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage01" + ".jpg");
             }
+            else
+            {
+                wpfn = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage02" + ".jpg");
+            }
 
             /*
              * Prepares the clip area
@@ -131,18 +135,45 @@ namespace DesktopImageChanger
             night.Save(fileName);
 
             /*
-             * Sets the desktop image
+             * Waits for the file to  be saved.
              */
-            SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
+            var timeOut = false;
+            while (!File.Exists(fileName))
+            {
+                var elapsed = DateTime.UtcNow - NOW;
+                if (elapsed.TotalSeconds > 5)
+                {
+                    timeOut = true;
+                    break;
+                }
+                Thread.Sleep(1);
+            }
 
             /*
-             * Deletes the previous wallpaper file
+             * Sets the desktop image.6
              */
-            try
+            if (!timeOut)
             {
-                File.Delete(wpfn);
+                SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
+                /*
+                 * The following line was added 
+                 * because the wallpaper was not 
+                 * updated immediately.
+                 * 
+                 * This workaround was found here:
+                 * https://stackoverflow.com/a/19732915/44375
+                 */
+                Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true).Close();
+
+                /*
+                 * Deletes the previous wallpaper file
+                 */
+                try
+                {
+                    File.Delete(wpfn);
+                }
+                catch { }
             }
-            catch { }
         }
 
         /// <summary>
