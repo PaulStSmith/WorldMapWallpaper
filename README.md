@@ -1,5 +1,5 @@
 # DesktopImageChanger
-Updates the desktop image with a world map depicting the day/night cycle with the time when the program runs. 
+Updates the desktop image with a world map depicting the day/night cycle at the time when the program runs. 
 Can be automated with a task scheduler.
 
 If you are using the task scheduler to run this at specific times, 
