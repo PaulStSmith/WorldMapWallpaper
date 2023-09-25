@@ -61,22 +61,52 @@ namespace DesktopImageChanger.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static byte[] EarthDay {
+        internal static System.Drawing.Bitmap ClockFace32 {
             get {
-                object obj = ResourceManager.GetObject("EarthDay", resourceCulture);
-                return ((byte[])(obj));
+                object obj = ResourceManager.GetObject("ClockFace32", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static byte[] EarthNight {
+        internal static System.Drawing.Bitmap ClockFace48 {
+            get {
+                object obj = ResourceManager.GetObject("ClockFace48", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap EarthDay {
+            get {
+                object obj = ResourceManager.GetObject("EarthDay", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap EarthNight {
             get {
                 object obj = ResourceManager.GetObject("EarthNight", resourceCulture);
-                return ((byte[])(obj));
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap WorldPoliticalMap {
+            get {
+                object obj = ResourceManager.GetObject("WorldPoliticalMap", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
     }

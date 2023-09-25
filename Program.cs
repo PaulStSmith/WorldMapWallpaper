@@ -1,10 +1,14 @@
-﻿using System.Drawing;
+﻿using System.Diagnostics;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Xml;
 using DesktopImageChanger.Properties;
 using Microsoft.Win32;
-using Windows.Devices.Spi;
+using Windows.Globalization.NumberFormatting;
+using Windows.Graphics;
+using Windows.UI.Popups;
 
 namespace DesktopImageChanger
 {
@@ -20,13 +24,15 @@ namespace DesktopImageChanger
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 
-        static void Main(string[] args)
+        static void Main()
         {
             /*
-             * Get the maps
+             * Short names for the resources
              */
-            var day = Bitmap.FromStream(new MemoryStream(Resources.EarthDay));
-            var night = Bitmap.FromStream(new MemoryStream(Resources.EarthNight));
+            var map = Resources.WorldPoliticalMap;
+            var day = Resources.EarthDay;
+            var night = Resources.EarthNight;
+            var clock = Resources.ClockFace32;
 
             /*
              *  Get current desktop wallpaper name
@@ -45,6 +51,11 @@ namespace DesktopImageChanger
             }
             else
             {
+                /*
+                 * This was added because we delete the previous wallpaper.
+                 * And before we were, inadevertedly, deleting any wallpaper
+                 * file that was set prioir to our setting the wall paper
+                 */
                 wpfn = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage02" + ".jpg");
             }
 
@@ -131,6 +142,62 @@ namespace DesktopImageChanger
                 var bmpDayTime = (Bitmap)day.Clone();
                 SetAlphaMask(bmpDayTime, bmpAlphaMask);
                 g.DrawImage(bmpDayTime, 0, 0);
+
+                /*
+                 * Draw the political map
+                 */
+                g.DrawImage(map, 0, 0, bmpDayTime.Width, bmpDayTime.Height);
+
+                /*
+                 * Draws the clock faces
+                 */
+                var tz = (float)day.Width / 24;
+                var dx = tz / 2;
+                for (var a = -12; a <= 12; a++)
+                {
+                    /*
+                     * Calculates the time zone line
+                     */
+                    var x = x0 + (float)(a * tz);
+
+                    /*
+                     * Draw the clock line
+                     */
+                    using (var p = new Pen(Color.FromArgb(6, 255, 255, 255), 1))
+                        g.DrawLine(p, x - dx, 0, x - dx, bmpDayTime.Height);
+
+                    /*
+                     * I think that the internal resolution 
+                     * of the images are different.
+                     * Writing this way solved the problem.
+                     */
+                    g.DrawImage(clock, new RectangleF(x - clock.Width / 2, 5, clock.Width, clock.Height), new RectangleF(0, 0, clock.Width, clock.Height), GraphicsUnit.Pixel);
+
+                    /*
+                     * Draw the clock hands
+                     */
+                    var y = (float)(5 + (clock.Height / 2));
+                    var handLength = (float)(clock.Width / 3);
+                    var centerPoint = new PointF(x, y);
+                    const int alphaHand = 64;
+
+                    var hc = NOW.AddHours(a);
+                    var ah = 30 * ((hc.Minute / 360) + hc.Hour < 12 ? hc.Hour : hc.Hour - 12) - 90;
+                    var xh = (float)(x + handLength * Trig.Cos(ah));
+                    var yh = (float)((5 + (clock.Height / 2)) + handLength * Trig.Sin(ah));
+
+                    var am = 6 * hc.Minute - 90;
+                    var xm = (float)(x + handLength * Trig.Cos(am));
+                    var ym = (float)((5 + (clock.Height / 2)) + handLength * Trig.Sin(am));
+
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+                    using (var p = new Pen(Color.FromArgb(alphaHand, Color.Red), 3))
+                        g.DrawLine(p, centerPoint, new PointF(xh, yh));
+
+                    using (var p = new Pen(Color.FromArgb(alphaHand, Color.Red), 2))
+                        g.DrawLine(p, centerPoint, new PointF(xm, ym));
+                }
             }
             night.Save(fileName);
 
@@ -191,6 +258,7 @@ namespace DesktopImageChanger
         public static void SetAlphaMask(Bitmap image, Bitmap alphaMask)
         {
             if (image == null) throw new ArgumentNullException("image");
+            if (alphaMask == null) throw new ArgumentNullException("alphaMask");
             if (image.Size != alphaMask.Size)
                 throw new ArgumentException("The image and alpha mask must be the same size.");
 
