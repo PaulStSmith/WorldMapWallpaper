@@ -6,6 +6,7 @@ using System.Text;
 using System.Xml;
 using DesktopImageChanger.Properties;
 using Microsoft.Win32;
+using Windows.Gaming.Input.ForceFeedback;
 using Windows.Globalization.NumberFormatting;
 using Windows.Graphics;
 using Windows.UI.Popups;
@@ -15,12 +16,12 @@ namespace DesktopImageChanger
     internal class Program
     {
         // For setting a string parameter
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, String pvParam, SPIF fWinIni);
 
         // For reading a string parameter
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 
@@ -60,15 +61,6 @@ namespace DesktopImageChanger
             }
 
             /*
-             * Prepares the clip area
-             */
-            var pts = new List<PointF>(new PointF[] 
-            {
-                new Point(night.Width, 0)
-               ,new Point(0,0)
-            });
-
-            /*
              * The current (or specified) UTC time in seconds.
              */
             var NOW = DateTime.UtcNow;
@@ -104,10 +96,28 @@ namespace DesktopImageChanger
              * vernal equinox as a reference point.
              */
             var DayOfYear = NOW.DayOfYear;
-            var VernalEquinox = new DateTime(NOW.Year, 2, 20).DayOfYear;
+            /*
+             * Calculate the Vernal Equinox.
+             * found here:
+             * https://astronomy.stackexchange.com/questions/43283/accuracy-of-calculating-the-vernal-equinox
+             * 
+             * Vernal Equinox for year 2000 A.D. is March 20, 7:36 GMT
+             */
+            var VE2000 = new DateTime(2000, 03, 20, 07, 36, 0);
+            var VernalEquinox = VE2000.AddDays((double)(NOW.Year - 2000) * 365.2425).DayOfYear;
+            // var VernalEquinox = new DateTime(NOW.Year, 2, 20).DayOfYear;
 
             /*
-             * Calculates the points or the terminator curve.
+             * Prepares the clip area
+             */
+            var pts = new List<PointF>(new PointF[]
+            {
+                new Point(night.Width, 0)
+               ,new Point(0,0)
+            });
+
+            /*
+             * Calculates the points of the terminator curve.
              */
             var MaxDeclination = 23.44;
             var declination = Trig.Sin(360 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
@@ -133,6 +143,7 @@ namespace DesktopImageChanger
             using (var g = Graphics.FromImage(bmpAlphaMask))
                 g.FillClosedCurve(Brushes.White, pts.ToArray());
             bmpAlphaMask = GaussianBlur.Apply(bmpAlphaMask, 16);
+            // bmpAlphaMask.Save(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "AlphaMask.jpg"), ImageFormat.Jpeg);
 
             /*
              * Draws the image
