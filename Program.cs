@@ -101,18 +101,20 @@ namespace DesktopImageChanger
              * found here:
              * https://astronomy.stackexchange.com/questions/43283/accuracy-of-calculating-the-vernal-equinox
              * 
-             * Vernal Equinox for year 2000 A.D. is March 20, 7:36 GMT
+             * Vernal Equinox for year 2000 A.D. was March 20, 7:36 GMT
+             * Autumnal Equinox for year 2000 A.D. was September 22 at 13:11 GMT
              */
             var VE2000 = new DateTime(2000, 03, 20, 07, 36, 0);
             var VernalEquinox = VE2000.AddDays((double)(NOW.Year - 2000) * 365.2425).DayOfYear;
-            // var VernalEquinox = new DateTime(NOW.Year, 2, 20).DayOfYear;
+            // var AE2000 = new DateTime(2000, 09, 22, 13, 11, 0);
+            // var AutumnalEquinox = AE2000.AddDays((double)(NOW.Year - 2000) * 365.2425).DayOfYear;
 
             /*
              * Prepares the clip area
              */
             var pts = new List<PointF>(new PointF[]
             {
-                new Point(night.Width, 0)
+                new Point(day.Width, 0)
                ,new Point(0,0)
             });
 
@@ -120,7 +122,7 @@ namespace DesktopImageChanger
              * Calculates the points of the terminator curve.
              */
             var MaxDeclination = 23.44;
-            var declination = Trig.Sin(360 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
+            var declination = Trig.Sin(360.0 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
             var y0 = (float)day.Height / 2;
             var x0 = (float)day.Width / 2;
             var xs = (float)day.Width / 360;
@@ -134,7 +136,7 @@ namespace DesktopImageChanger
                 var x = x0 + (a * xs);
                 pts.Add(new PointF(x, y));
             }
-            pts.Add(new Point(night.Width, 0));
+            pts.Add(new Point(day.Width, 0));
 
             /*
              * Generates the alpha mask
