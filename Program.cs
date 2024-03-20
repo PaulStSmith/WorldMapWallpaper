@@ -143,7 +143,10 @@ namespace DesktopImageChanger
              */
             var bmpAlphaMask = new Bitmap(day.Width, day.Height);
             using (var g = Graphics.FromImage(bmpAlphaMask))
-                g.FillClosedCurve(Brushes.White, pts.ToArray());
+            {
+                g.FillRectangle((declination >= 0) ? Brushes.White : Brushes.Black, new RectangleF(0, 0, day.Width, day.Height));
+                g.FillClosedCurve((declination >= 0) ? Brushes.Black : Brushes.White, pts.ToArray());
+            }
             bmpAlphaMask = GaussianBlur.Apply(bmpAlphaMask, 16);
             // bmpAlphaMask.Save(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "AlphaMask.jpg"), ImageFormat.Jpeg);
 
