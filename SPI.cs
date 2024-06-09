@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace DesktopImageChanger
+namespace WorldMapWallpaper
 {
     /// <summary>
     /// SPI_ System-wide parameter - Used in SystemParametersInfo function

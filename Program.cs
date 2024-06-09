@@ -1,18 +1,15 @@
-﻿using System.Diagnostics;
+﻿using WorldMapWallpaper.Properties;
+using Microsoft.Win32;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Xml;
-using DesktopImageChanger.Properties;
-using Microsoft.Win32;
-using Windows.Gaming.Input.ForceFeedback;
-using Windows.Globalization.NumberFormatting;
-using Windows.Graphics;
-using Windows.UI.Popups;
 
-namespace DesktopImageChanger
+namespace WorldMapWallpaper
 {
+    /// <summary>
+    /// The main class of the WorldMapWallpaper application.
+    /// </summary>
     internal class Program
     {
         // For setting a string parameter
@@ -25,6 +22,9 @@ namespace DesktopImageChanger
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 
+        /// <summary>
+        /// The main entry point for the application.
+        /// </summary>
         static void Main()
         {
             /*
@@ -265,27 +265,27 @@ namespace DesktopImageChanger
         /// <param name="image">An image to apply the alpha mask.</param>
         /// <param name="alphaMask">An alpha mask.</param>
         /// <remarks>
-        /// The alpha mask must be a grayscale image.
-        /// 
-        /// Adapted from 
+        /// The alpha mask must be a grayscale image. <br/>
+        /// <br/>
+        /// Adapted from  <br/>
         /// https://danbystrom.se/2008/08/24/soft-edged-images-in-gdi/
         /// </remarks>
         /// <exception cref="ArgumentException"></exception>
         public static void SetAlphaMask(Bitmap image, Bitmap alphaMask)
         {
-            if (image == null) throw new ArgumentNullException("image");
-            if (alphaMask == null) throw new ArgumentNullException("alphaMask");
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            if (alphaMask == null) throw new ArgumentNullException(nameof(alphaMask));
             if (image.Size != alphaMask.Size)
                 throw new ArgumentException("The image and alpha mask must be the same size.");
 
-            Rectangle r = new Rectangle(Point.Empty, image.Size);
-            BitmapData bdDst = image.LockBits(r, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            BitmapData bdSrc = alphaMask.LockBits(r, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            var r = new Rectangle(Point.Empty, image.Size);
+            var bdDst = image.LockBits(r, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var bdSrc = alphaMask.LockBits(r, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
             unsafe
             {
-                byte* bpSrc = (byte*)bdSrc.Scan0.ToPointer();
-                byte* bpDst = (byte*)bdDst.Scan0.ToPointer() + 3; // 3 is the alpha channel | 0 - Blue | 1 - Green | 2 - Red | 3 - Alpha |
-                for (int i = r.Height * r.Width; i > 0; i--)
+                var bpSrc = (byte*)bdSrc.Scan0.ToPointer();
+                var bpDst = (byte*)bdDst.Scan0.ToPointer() + 3; // 3 is the alpha channel | 0 - Blue | 1 - Green | 2 - Red | 3 - Alpha |
+                for (var i = r.Height * r.Width; i > 0; i--)
                 {
                     *bpDst = *bpSrc;
                     bpSrc += 4;

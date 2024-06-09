@@ -1,4 +1,4 @@
-# DesktopImageChanger
+# WorldMapWallpaper
 Updates the desktop image with a world map depicting the day/night cycle at the time when the program runs. 
 Can be automated with a task scheduler.
 
