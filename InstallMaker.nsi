@@ -81,6 +81,11 @@ Function CreateSchedulerTask
     ; Create the XML file
     StrCpy $0 "$INSTDIR\WorldMapWallpaperTask.xml"
     FileOpen $1 $0 w
+
+	ClearErrors
+	UserInfo::GetName
+	Pop $0
+
     FileWrite $1 '<?xml version="1.0" encoding="UTF-16"?>$\r$\n'
     FileWrite $1 '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">$\r$\n'
     FileWrite $1 '  <RegistrationInfo>$\r$\n'
@@ -109,7 +114,7 @@ Function CreateSchedulerTask
     FileWrite $1 '  </Triggers>$\r$\n'
     FileWrite $1 '  <Principals>$\r$\n'
     FileWrite $1 '    <Principal id="Author">$\r$\n'
-    FileWrite $1 '      <UserId>SYSTEM</UserId>$\r$\n'
+    FileWrite $1 '      <UserId>$0</UserId>$\r$\n'
     FileWrite $1 '      <LogonType>InteractiveToken</LogonType>$\r$\n'
     FileWrite $1 '      <RunLevel>HighestAvailable</RunLevel>$\r$\n'
     FileWrite $1 '    </Principal>$\r$\n'
@@ -143,7 +148,7 @@ Function CreateSchedulerTask
     LogText "XML file created: $0"
 
     LogText "Creating scheduler task to run the program..."
-    StrCpy $0 '"schtasks" /create /tn "World Map Wallpaper" /xml "\"$INSTDIR\WorldMapWallpaperTask.xml\"" /f'
+    StrCpy $0 '"schtasks" /create /tn "World Map Wallpaper" /xml "$INSTDIR\WorldMapWallpaperTask.xml" /f'
     LogText "Command: $0"
     nsExec::Exec "$0"
     pop $0
@@ -169,16 +174,7 @@ Section "Uninstall" SecUninstaller
 
     ; Remove the scheduler tasks
     LogText "Removing scheduler task to run the program every hour on the hour..."
-    nsExec::Exec '"schtasks" /delete /tn "World Map Wallpaper 01" /f'
-
-    LogText "Removing scheduler task to run the program when the user logs in..."
-    nsExec::Exec '"schtasks" /delete /tn "World Map Wallpaper 02" /f'
-
-    LogText "Removing scheduler task to run the program when the computer starts..."
-    nsExec::Exec '"schtasks" /delete /tn "World Map Wallpaper 03" /f'
-
-    LogText "Removing scheduler task to run the program when the computer starts..."
-    nsExec::Exec '"schtasks" /delete /tn "World Map Wallpaper 04" /f'
+    nsExec::Exec '"schtasks" /delete /tn "World Map Wallpaper" /f'
 
 SectionEnd
 
