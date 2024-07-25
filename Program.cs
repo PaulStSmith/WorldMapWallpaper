@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
+using log4net;
+using System.Reflection;
 
 namespace WorldMapWallpaper
 {
@@ -22,11 +24,25 @@ namespace WorldMapWallpaper
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 
+        static ILog log;
+
+        static Program()
+        {
+            /*
+             * Configure the logger
+             */
+            var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
+            log4net.Config.XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
+            log = LogManager.GetLogger(typeof(Program));
+        }
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         static void Main()
         {
+            log.Info("Starting the WorldMapWallpaper application.");
+
             /*
              * Short names for the resources
              */
@@ -38,26 +54,18 @@ namespace WorldMapWallpaper
             /*
              *  Get current desktop wallpaper name
              */
+            log.Info("Getting the current desktop wallpaper name.");
             var sbWPFN = new StringBuilder(256);
             SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
             var wpfn = sbWPFN.ToString();
+            log.Debug($"The current desktop wallpaper name is “{wpfn ?? "null"}”.");
 
-            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage01" + ".jpg");
-            if (Path.GetFileName(wpfn).StartsWith("DesktopImage",StringComparison.InvariantCultureIgnoreCase))
+            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "WorldMap01" + ".jpg");
+            if (string.Compare(wpfn, fileName, true) == 0)
             {
-                if (wpfn.EndsWith("01.jpg", StringComparison.InvariantCultureIgnoreCase))
-                    fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage02" + ".jpg");
-                else
-                    fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage01" + ".jpg");
-            }
-            else
-            {
-                /*
-                 * This was added because we delete the previous wallpaper.
-                 * And before we were, inadevertedly, deleting any wallpaper
-                 * file that was set prioir to our setting the wall paper
-                 */
-                wpfn = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DesktopImage02" + ".jpg");
+                fileName = wpfn.EndsWith("01.jpg", StringComparison.InvariantCultureIgnoreCase)
+                    ? wpfn.Replace("01.jpg", "02.jpg")
+                    : wpfn.Replace("02.jpg", "01.jpg");
             }
 
             /*
@@ -105,9 +113,13 @@ namespace WorldMapWallpaper
              * Autumnal Equinox for year 2000 A.D. was September 22 at 13:11 GMT
              */
             var VE2000 = new DateTime(2000, 03, 20, 07, 36, 0);
-            var VernalEquinox = VE2000.AddDays((double)(NOW.Year - 2000) * 365.2425).DayOfYear;
+            var VE = VE2000.AddDays((double)(NOW.Year - 2000) * 365.2425);
+            var VernalEquinox = VE.DayOfYear;
             // var AE2000 = new DateTime(2000, 09, 22, 13, 11, 0);
             // var AutumnalEquinox = AE2000.AddDays((double)(NOW.Year - 2000) * 365.2425).DayOfYear;
+
+            log.Debug($"The current UTC time is {NOW}.");
+            log.Debug($"Calculated Vernal Equinox is {VE}.");
 
             /*
              * Prepares the clip area
@@ -121,6 +133,8 @@ namespace WorldMapWallpaper
             /*
              * Calculates the points of the terminator curve.
              */
+            log.Info("Calculating the points of the terminator curve.");
+
             var MaxDeclination = 23.44;
             var declination = Trig.Sin(360.0 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
             var y0 = (float)day.Height / 2;
@@ -141,6 +155,7 @@ namespace WorldMapWallpaper
             /*
              * Generates the alpha mask
              */
+            log.Info("Generating the alpha mask.");
             var bmpAlphaMask = new Bitmap(day.Width, day.Height);
             using (var g = Graphics.FromImage(bmpAlphaMask))
             {
@@ -153,20 +168,25 @@ namespace WorldMapWallpaper
             /*
              * Draws the image
              */
+            log.Info("Drawing the image.");
             using (var g = Graphics.FromImage(night))
             {
                 var bmpDayTime = (Bitmap)day.Clone();
+                log.Debug("Apply the alpha mask to the day image.");
                 SetAlphaMask(bmpDayTime, bmpAlphaMask);
+                log.Debug("Drawing the day image over the night image.");
                 g.DrawImage(bmpDayTime, 0, 0);
 
                 /*
                  * Draw the political map
                  */
+                log.Debug("Drawing the political map.");
                 g.DrawImage(map, 0, 0, bmpDayTime.Width, bmpDayTime.Height);
 
                 /*
                  * Draws the clock faces
                  */
+                log.Debug("Drawing the clock faces.");
                 var tz = (float)day.Width / 24;
                 var dx = tz / 2;
                 for (var a = -12; a <= 12; a++)
@@ -215,12 +235,15 @@ namespace WorldMapWallpaper
                         g.DrawLine(p, centerPoint, new PointF(xm, ym));
                 }
             }
+
+            log.Info($"Saving the new wallpaper to “{fileName}”.");
             night.Save(fileName);
 
             /*
              * Waits for the file to  be saved.
              */
             var timeOut = false;
+            log.Debug("Waiting for the file to be saved.");
             while (!File.Exists(fileName))
             {
                 var elapsed = DateTime.UtcNow - NOW;
@@ -237,7 +260,9 @@ namespace WorldMapWallpaper
              */
             if (!timeOut)
             {
+                log.Info("Setting the desktop wallpaper.");
                 SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
+
                 /*
                  * The following line was added 
                  * because the wallpaper was not 
@@ -246,6 +271,7 @@ namespace WorldMapWallpaper
                  * This workaround was found here:
                  * https://stackoverflow.com/a/19732915/44375
                  */
+                log.Debug("Refreshing the desktop.");
                 Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true).Close();
 
                 /*
@@ -253,7 +279,11 @@ namespace WorldMapWallpaper
                  */
                 try
                 {
-                    File.Delete(wpfn);
+                    if (!string.IsNullOrEmpty(wpfn) && File.Exists(wpfn))
+                    {
+                        log.Info($"Deleting the previous wallpaper file “{wpfn}”.");
+                        File.Delete(wpfn);
+                    }
                 }
                 catch { }
             }
