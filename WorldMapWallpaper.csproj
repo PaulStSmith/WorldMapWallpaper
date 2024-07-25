@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -39,4 +39,18 @@
     <Message Importance="high" Text="Building for $(Configuration)..." />
   </Target>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$(Configuration)=='Release'">
+    <Message Importance="high" Text="Build completed for $(Configuration)!" />
+    <Message Importance="high" Text="Creating Installer" />
+    <PropertyGroup>
+      <NSIS>$(MSBuildProgramFiles32)\NSIS\makensis.exe</NSIS>
+      <publish>dotnet publish "$(ProjectPath)" --no-build</publish>
+      <cmd>"$(NSIS)" "InstallMaker.nsi" /oname=Install.exe</cmd>
+    </PropertyGroup>
+    <Message Importance="high" Text="Executing --> $(publish)" />
+    <Exec Command="$(publish)"></Exec>
+    <Message Importance="high" Text="Executing --> $(cmd)" />
+    <Exec Command="$(cmd)"></Exec>
+  </Target>
+  
 </Project>

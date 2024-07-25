@@ -130,7 +130,7 @@ namespace WorldMapWallpaper
             for (var a = -180; a <= 180; a++)
             {
                 var longitude = a + TimeOffset;
-                var tanLat = -Trig.Cos(longitude) / Trig.Tan(declination);
+                var tanLat = Trig.Cos(longitude) / Trig.Tan(declination);
                 var arctanLat = Trig.Atan(tanLat);
                 var y = y0 + (float)(arctanLat * ys);
                 var x = x0 + (a * xs);
@@ -144,8 +144,8 @@ namespace WorldMapWallpaper
             var bmpAlphaMask = new Bitmap(day.Width, day.Height);
             using (var g = Graphics.FromImage(bmpAlphaMask))
             {
-                g.FillRectangle((declination >= 0) ? Brushes.White : Brushes.Black, new RectangleF(0, 0, day.Width, day.Height));
-                g.FillClosedCurve((declination >= 0) ? Brushes.Black : Brushes.White, pts.ToArray());
+                g.FillRectangle((declination >= 0) ? Brushes.Black : Brushes.White, new RectangleF(0, 0, day.Width, day.Height));
+                g.FillClosedCurve((declination >= 0) ? Brushes.White : Brushes.Black, pts.ToArray());
             }
             bmpAlphaMask = GaussianBlur.Apply(bmpAlphaMask, 16);
             // bmpAlphaMask.Save(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "AlphaMask.jpg"), ImageFormat.Jpeg);
