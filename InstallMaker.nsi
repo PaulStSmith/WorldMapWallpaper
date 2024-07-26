@@ -2,6 +2,18 @@
 !define MUI_ABORTWARNING
 !define TEMP1 $R0 ; Temporary variable 1
 !include "MUI.nsh"
+!include "LogicLib.nsh"
+
+;
+; Define the application name and event log source
+;
+!define EVENT_SOURCE "World Map Wallpaper Source"
+!define EVENT_LOG "Application"
+
+;
+; Define the Registry path for the event log source
+;
+!define REG_PATH "SYSTEM\CurrentControlSet\Services\EventLog\${EVENT_LOG}\${EVENT_SOURCE}"
 
 Name "World Map Wallpaper"
 OutFile "Install.exe"
@@ -49,6 +61,7 @@ FunctionEnd
 
 Section "Installer Section" SecInstaller
     LogSet on
+
     ;
     ; Files to be installed
     ;
@@ -56,14 +69,32 @@ Section "Installer Section" SecInstaller
     File "License.txt"
 
     ;
-    ; Create uninstaller
+    ; Create the Event Source
     ;
-    WriteUninstaller "$INSTDIR\Uninstall.exe"
+    Call CreateEventSource
 
     ;
-    ; Create XML file for the scheduler task
+    ; Create the scheduled task
     ;
     Call CreateSchedulerTask
+
+    ;
+    ; Create a log directory
+    ;
+    LogText "Creating log directory..."
+    CreateDirectory "$INSTDIR\log"
+    
+    ;
+    ; Set permissions on the log directory
+    ;
+    LogText "Setting permissions on the log directory..."
+    nsExec::ExecToLog 'icacls "$INSTDIR\log" /grant "Users":(OI)(CI)F'
+
+    ;
+    ; Create uninstaller
+    ;
+    LogText "Creating uninstaller..."
+    WriteUninstaller "$INSTDIR\Uninstall.exe"
 
     ;
     ; Running the program
@@ -75,10 +106,23 @@ Section "Installer Section" SecInstaller
     LogText "Installation complete."
 SectionEnd
 
+Function CreateEventSource
+    LogText "Creating event source..."
+
+    ; Create the registry key
+    WriteRegStr HKLM "${REG_PATH}" "EventMessageFile" "$INSTDIR\WorldMapWallpaper.exe"
+    WriteRegDWORD HKLM "${REG_PATH}" "TypesSupported" 7
+
+    LogText "Event source created."
+FunctionEnd
+
 Function CreateSchedulerTask
     
     LogText "Creating XML file for the scheduler task..."
-    ; Create the XML file
+
+    ;
+    ; Create XML file for the scheduler task
+    ;
     StrCpy $0 "$INSTDIR\WorldMapWallpaperTask.xml"
     FileOpen $1 $0 w
 
@@ -165,16 +209,29 @@ Section "Uninstall" SecUninstaller
     LogSet on
 
     LogText "Uninstalling WorldMapWallpaper..."
-
     LogText "Installation directory: $INSTDIR"
 
+    ;
     ; Remove the installation directory
+    ;
     LogText "Removing installation directory..."
     RMDir /r "$INSTDIR"
 
+    ;
     ; Remove the scheduler tasks
+    ;
     LogText "Removing scheduler task to run the program every hour on the hour..."
-    nsExec::Exec '"schtasks" /delete /tn "World Map Wallpaper" /f'
+    StrCpy $0 '"schtasks" /delete /tn "World Map Wallpaper" /f'
+    LogText "Command: $0"
+    nsExec::Exec "$0"
+    pop $0
+    LogText "Exit Code: $0"
+
+    ;
+    ; Remove the event source
+    ;
+    LogText "Removing event source..."
+    DeleteRegKey HKLM "${REG_PATH}"
 
 SectionEnd
 
@@ -185,9 +242,11 @@ SectionEnd
 ;           |___/                                     
 
 Function .onInstSuccess
+    LogSet on
     LogText "Installation successful."
 FunctionEnd
 
 Function .onInstFailed
+    LogSet on
     LogText "Installation failed."
 FunctionEnd

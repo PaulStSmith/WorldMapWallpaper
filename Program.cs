@@ -1,11 +1,9 @@
-﻿using WorldMapWallpaper.Properties;
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
-using log4net;
-using System.Reflection;
+using WorldMapWallpaper.Properties;
 
 namespace WorldMapWallpaper
 {
@@ -24,17 +22,7 @@ namespace WorldMapWallpaper
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 
-        static ILog log;
-
-        static Program()
-        {
-            /*
-             * Configure the logger
-             */
-            var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
-            log4net.Config.XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
-            log = LogManager.GetLogger(typeof(Program));
-        }
+        static readonly Logger log = new();
 
         /// <summary>
         /// The main entry point for the application.

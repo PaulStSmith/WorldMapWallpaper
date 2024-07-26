@@ -8,6 +8,8 @@
     <StartupObject>WorldMapWallpaper.Program</StartupObject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Resources\Icons.ico</ApplicationIcon>
+    <UseWindowsForms>False</UseWindowsForms>
+    <AssemblyVersion></AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="log4net" Version="2.0.17" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.7" />
     <PackageReference Include="System.Drawing.Primitives" Version="4.3.0" />
     <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
@@ -36,28 +38,7 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="log4net.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
     <Message Importance="high" Text="Building for $(Configuration)..." />
   </Target>
-
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$(Configuration)=='Release'">
-    <Message Importance="high" Text="Build completed for $(Configuration)!" />
-    <Message Importance="high" Text="Creating Installer" />
-    <PropertyGroup>
-      <NSIS>$(MSBuildProgramFiles32)\NSIS\makensis.exe</NSIS>
-      <publish>dotnet publish "$(ProjectPath)" -c Release --no-build</publish>
-      <cmd>"$(NSIS)" "InstallMaker.nsi" /oname=Install.exe</cmd>
-    </PropertyGroup>
-    <Message Importance="high" Text="Executing -- $(publish)" />
-    <Exec Command="$(publish)"></Exec>
-    <Message Importance="high" Text="Executing -- $(cmd)" />
-    <Exec Command="$(cmd)"></Exec>
-  </Target>
-  
 </Project>
