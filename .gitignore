@@ -367,3 +367,4 @@ CLAUDE.md
 
 # Installer output folder
 /Install.exe
+.claude/
