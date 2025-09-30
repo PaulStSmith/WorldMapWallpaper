@@ -104,92 +104,91 @@ echo              BUILD COMPLETED
 echo ===============================================
 echo.
 echo Published files: %PROJECT_DIR%bin\publish-64\
-if exist "Install.exe" (
-    echo Installer created: %PROJECT_DIR%Install.exe
-    echo.
-    echo. Configuration: %cfg%
-    if /i "%cfg%"=="Release" (
-        echo [RELEASE] Triggering GitHub release...
-        echo.
-        
-        REM Check if gh CLI is available
-        where gh >nul 2>nul
-        if !ERRORLEVEL! neq 0 (
-            echo WARNING: GitHub CLI not found. Please install GitHub CLI to create releases.
-            echo You can download it from: https://cli.github.com/
-            echo.
-            echo Alternatively, trigger the release manually with:
-            echo gh api repos/:owner/:repo/dispatches -f event_type=create-release
-        ) else (
-            echo Creating GitHub release...
-            
-            REM Get version from AssemblyInfo.cs
-            set "VERSION="
-            for /f "tokens=2 delims=(" %%a in ('findstr "AssemblyVersion" Properties\AssemblyInfo.cs') do (
-                for /f "tokens=1 delims=)" %%b in ("%%a") do (
-                    set VERSION=%%b
-                    set VERSION=!VERSION:"=!
-                )
-            )
-            
-            if "!VERSION!"=="" (
-                echo ERROR: Could not extract version from AssemblyInfo.cs
-                exit /b 1
-            )
-            
-            echo Creating release v!VERSION! with installer...
-            
-            REM Check if tag already exists and find available suffix
-            set "FINAL_VERSION=!VERSION!"
-            set "SUFFIX_LETTERS=abcdefghijklmnopqrstuvwxyz"
-            
-            REM Check if base version exists
-            gh release view "v!VERSION!" >nul 2>&1
-            if !ERRORLEVEL! equ 0 (
-                echo Tag v!VERSION! already exists, finding available suffix...
-                
-                REM Try sequential letters
-                for /l %%i in (0,1,25) do (
-                    set /a "CHAR_INDEX=%%i"
-                    call set "LETTER=%%SUFFIX_LETTERS:~!CHAR_INDEX!,1%%"
-                    set "TEST_VERSION=!VERSION!!LETTER!"
-                    
-                    gh release view "v!TEST_VERSION!" >nul 2>&1
-                    if !ERRORLEVEL! neq 0 (
-                        set "FINAL_VERSION=!TEST_VERSION!"
-                        echo Using tag: v!FINAL_VERSION!
-                        goto :create_release
-                    )
-                )
-                
-                echo ERROR: All suffixes a-z are taken for version !VERSION!
-                exit /b 1
-            )
-            
-            :create_release
-            gh release create "v!FINAL_VERSION!" Install.exe --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
-            
-            if !ERRORLEVEL! equ 0 (
-                echo GitHub release created successfully!
-                echo View at: https://github.com/PaulStSmith/DesktopImageChanger/releases/tag/v!FINAL_VERSION!
-            ) else (
-                echo ERROR: Failed to create GitHub release.
-                echo Make sure you're authenticated with: gh auth login
-            )
-        )
-        echo.
-    ) else (
-        echo Debug build completed. No release created.
-    )
-    echo The installer is ready for distribution!
-) else (
+if not exist "Install.exe" (
     echo WARNING: Install.exe not found.
     if /i "%cfg%"=="Release" (
         echo Cannot create release without installer!
         exit /b 1
     )
 )
+echo Installer created: %PROJECT_DIR%Install.exe
 echo.
+echo. Configuration: %cfg%
+if /i "%cfg%"!="Release" (
+    echo Debug build completed. No release created.
+    exit /b 0
+)
+echo [RELEASE] Triggering GitHub release...
+echo.
+        
+REM Check if gh CLI is available
+where gh >nul 2>nul
+if !ERRORLEVEL! neq 0 (
+    echo WARNING: GitHub CLI not found. Please install GitHub CLI to create releases.
+    echo You can download it from: https://cli.github.com/
+    echo.
+    echo Alternatively, trigger the release manually with:
+    echo gh api repos/:owner/:repo/dispatches -f event_type=create-release
+    exit /b 1
+) 
+
+echo Creating GitHub release...
+            
+REM Get version from AssemblyInfo.cs
+set "VERSION="
+for /f "tokens=2 delims=(" %%a in ('findstr "AssemblyVersion" Properties\AssemblyInfo.cs') do (
+    for /f "tokens=1 delims=)" %%b in ("%%a") do (
+        set VERSION=%%b
+        set VERSION=!VERSION:"=!
+    )
+)
+            
+if "!VERSION!"=="" (
+    echo ERROR: Could not extract version from AssemblyInfo.cs
+    exit /b 1
+)
+            
+echo Creating release v!VERSION! with installer...
+            
+REM Check if tag already exists and find available suffix
+set "FINAL_VERSION=!VERSION!"
+set "SUFFIX_LETTERS=abcdefghijklmnopqrstuvwxyz"
+            
+REM Check if base version exists
+gh release view "v!VERSION!" >nul 2>&1
+if !ERRORLEVEL! equ 0 (
+    echo Tag v!VERSION! already exists, finding available suffix...
+                
+    REM Try sequential letters
+    for /l %%i in (0,1,25) do (
+        set /a "CHAR_INDEX=%%i"
+        call set "LETTER=%%SUFFIX_LETTERS:~!CHAR_INDEX!,1%%"
+        set "TEST_VERSION=!VERSION!!LETTER!"
+                    
+        gh release view "v!TEST_VERSION!" >nul 2>&1
+        if !ERRORLEVEL! neq 0 (
+            set "FINAL_VERSION=!TEST_VERSION!"
+            echo Using tag: v!FINAL_VERSION!
+            goto :create_release
+        )
+    )
+                
+    echo ERROR: All suffixes a-z are taken for version !VERSION!
+    exit /b 1
+)
+            
+:create_release
+gh release create "v!FINAL_VERSION!" Install.exe --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
+            
+if !ERRORLEVEL! neq 0 (
+    echo ERROR: Failed to create GitHub release.
+    echo Make sure you're authenticated with: gh auth login
+    exit /b 1
+) 
+
+echo GitHub release created successfully!
+echo View at: https://github.com/PaulStSmith/DesktopImageChanger/releases/tag/v!FINAL_VERSION!
+echo The installer is ready for distribution!
 exit /b 0
 
 :BuildSolutions
