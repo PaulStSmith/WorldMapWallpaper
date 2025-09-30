@@ -107,6 +107,7 @@ echo Published files: %PROJECT_DIR%bin\publish-64\
 if exist "Install.exe" (
     echo Installer created: %PROJECT_DIR%Install.exe
     echo.
+    echo. Configuration: %cfg%
     if /i "%cfg%"=="Release" (
         echo [RELEASE] Triggering GitHub release...
         echo.
@@ -131,6 +132,8 @@ if exist "Install.exe" (
             )
         )
         echo.
+    ) else (
+        echo Debug build completed. No release created.
     )
     echo The installer is ready for distribution!
 ) else (
