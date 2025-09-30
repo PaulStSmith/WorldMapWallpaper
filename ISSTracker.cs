@@ -1,6 +1,5 @@
-using System.Drawing;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using System.Drawing;
 using WorldMapWallpaper.Properties;
 
 namespace WorldMapWallpaper
