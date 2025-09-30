@@ -9,7 +9,14 @@ namespace WorldMapWallpaper
     /// Provides functionality to fetch ISS coordinates, calculate sunlight status,
     /// and render the ISS position on a world map.
     /// </summary>
-    internal partial class ISSTracker
+    /// <remarks>
+    /// Initializes a new instance of the <see cref="ISSTracker"/> class.
+    /// </remarks>
+    /// <param name="logger">The logger instance for debug and info messages.</param>
+    /// <param name="timeOffset">Time offset for terminator calculation.</param>
+    /// <param name="declination">Solar declination for terminator calculation.</param>
+    /// <param name="showOrbit">Whether to draw the ISS orbital path.</param>
+    internal partial class ISSTracker(Logger logger, double timeOffset, double declination, bool showOrbit = true)
     {
         /// <summary>
         /// Shared HTTP client instance with a 5-second timeout for API requests.
@@ -18,26 +25,6 @@ namespace WorldMapWallpaper
         {
             Timeout = TimeSpan.FromSeconds(5)
         };
-
-        /// <summary>
-        /// Logger instance for debugging and informational messages.
-        /// </summary>
-        private readonly Logger _logger;
-
-        /// <summary>
-        /// Time offset for terminator calculation.
-        /// </summary>
-        private readonly double _timeOffset;
-
-        /// <summary>
-        /// Solar declination for terminator calculation.
-        /// </summary>
-        private readonly double _declination;
-
-        /// <summary>
-        /// Whether to draw the ISS orbital path.
-        /// </summary>
-        private readonly bool _showOrbit;
 
         /// <summary>
         /// Cache file path for storing last known ISS position.
@@ -138,17 +125,33 @@ namespace WorldMapWallpaper
         /// </summary>
         private class ISSData
         {
-            // API response fields
+            /// <summary>
+            /// Gets or sets the message from the API response.
+            /// </summary>
             [JsonProperty("message")]
             public string? Message { get; set; }
+            
+            /// <summary>
+            /// Gets or sets the timestamp of the position reading as Unix timestamp.
+            /// </summary>
             [JsonProperty("timestamp")]
             public long Timestamp { get; set; }
+            
+            /// <summary>
+            /// Gets or sets the ISS coordinates from the API response.
+            /// </summary>
             [JsonProperty("iss_position")]
             public ISSCoordinates? ISSPosition { get; set; }
             
-            // Cache-specific fields (optional, only used for cache storage)
+            /// <summary>
+            /// Gets or sets the orbital phase in degrees (cache-specific field).
+            /// </summary>
             [JsonProperty("orbital_phase")]
             public double? OrbitalPhase { get; set; }
+            
+            /// <summary>
+            /// Gets or sets a value indicating whether the ISS is on an ascending pass (cache-specific field).
+            /// </summary>
             [JsonProperty("is_ascending")]
             public bool? IsAscending { get; set; }
         }
@@ -159,8 +162,15 @@ namespace WorldMapWallpaper
         /// </summary>
         private class ISSCoordinates
         {
+            /// <summary>
+            /// Gets or sets the latitude coordinate in degrees.
+            /// </summary>
             [JsonProperty("latitude")]
             public double Latitude { get; set; }
+            
+            /// <summary>
+            /// Gets or sets the longitude coordinate in degrees.
+            /// </summary>
             [JsonProperty("longitude")]
             public double Longitude { get; set; }
         }
@@ -168,57 +178,34 @@ namespace WorldMapWallpaper
         /// <summary>
         /// Represents the International Space Station position and tracking state.
         /// </summary>
-        public class ISSPosition
+        /// <remarks>
+        /// Initializes a new instance of the <see cref="ISSPosition"/> class.
+        /// </remarks>
+        /// <param name="lat">The latitude coordinate in degrees.</param>
+        /// <param name="lon">The longitude coordinate in degrees.</param>
+        /// <param name="timestamp">The timestamp of the position reading.</param>
+        /// <param name="inSunlight">Whether the ISS is in sunlight at this position.</param>
+        public class ISSPosition(double lat, double lon, DateTime timestamp, bool inSunlight)
         {
             /// <summary>
             /// Gets the latitude coordinate of the ISS in degrees (-90 to 90).
             /// </summary>
-            public double Latitude { get; init; }
+            public double Latitude { get; init; } = lat;
 
             /// <summary>
             /// Gets the longitude coordinate of the ISS in degrees (-180 to 180).
             /// </summary>
-            public double Longitude { get; init; }
+            public double Longitude { get; init; } = lon;
 
             /// <summary>
             /// Gets the timestamp when this position was recorded.
             /// </summary>
-            public DateTime Timestamp { get; init; }
+            public DateTime Timestamp { get; init; } = timestamp;
 
             /// <summary>
             /// Gets a value indicating whether the ISS is currently in sunlight.
             /// </summary>
-            public bool IsInSunlight { get; init; }
-
-            /// <summary>
-            /// Initializes a new instance of the <see cref="ISSPosition"/> class.
-            /// </summary>
-            /// <param name="lat">The latitude coordinate in degrees.</param>
-            /// <param name="lon">The longitude coordinate in degrees.</param>
-            /// <param name="timestamp">The timestamp of the position reading.</param>
-            /// <param name="inSunlight">Whether the ISS is in sunlight at this position.</param>
-            public ISSPosition(double lat, double lon, DateTime timestamp, bool inSunlight)
-            {
-                Latitude = lat;
-                Longitude = lon;
-                Timestamp = timestamp;
-                IsInSunlight = inSunlight;
-            }
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ISSTracker"/> class.
-        /// </summary>
-        /// <param name="logger">The logger instance for debug and info messages.</param>
-        /// <param name="timeOffset">Time offset for terminator calculation.</param>
-        /// <param name="declination">Solar declination for terminator calculation.</param>
-        /// <param name="showOrbit">Whether to draw the ISS orbital path.</param>
-        public ISSTracker(Logger logger, double timeOffset, double declination, bool showOrbit = true)
-        {
-            _logger = logger;
-            _timeOffset = timeOffset;
-            _declination = declination;
-            _showOrbit = showOrbit;
+            public bool IsInSunlight { get; init; } = inSunlight;
         }
 
         /// <summary>
@@ -238,18 +225,18 @@ namespace WorldMapWallpaper
                 var issPosition = GetCurrentPosition();
                 if (issPosition == null)
                 {
-                    _logger.Debug("ISS position unavailable, returning original map.");
+                    logger.Debug("ISS position unavailable, returning original map.");
                     return map;
                 }
 
                 // Calculate sunlight status
-                issPosition = CalculateSunlightStatus(issPosition, _timeOffset, _declination);
+                issPosition = CalculateSunlightStatus(issPosition, timeOffset, declination);
 
                 // Choose appropriate icon
                 var icon = issPosition.IsInSunlight ? _dayIcon : _nightIcon;
                 if (icon == null)
                 {
-                    _logger.Debug("No ISS icon available, returning original map.");
+                    logger.Debug("No ISS icon available, returning original map.");
                     return map;
                 }
 
@@ -258,7 +245,7 @@ namespace WorldMapWallpaper
                 using var graphics = Graphics.FromImage(mapCopy);
                 
                 // Draw the orbit first (so ISS appears on top)
-                if (_showOrbit)
+                if (showOrbit)
                 {
                     DrawISSOrbit(graphics, issPosition, mapCopy.Width, mapCopy.Height);
                 }
@@ -270,7 +257,7 @@ namespace WorldMapWallpaper
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Error plotting ISS: {ex.Message}");
+                logger.Debug($"Error plotting ISS: {ex.Message}");
                 return map;
             }
         }
@@ -293,7 +280,7 @@ namespace WorldMapWallpaper
             }
 
             // API failed, try to predict from cached data
-            _logger.Debug("API failed, attempting to predict ISS position from cached data.");
+            logger.Debug("API failed, attempting to predict ISS position from cached data.");
             return PredictPositionFromCache();
         }
 
@@ -305,7 +292,7 @@ namespace WorldMapWallpaper
         {
             try
             {
-                _logger.Debug("Fetching ISS position from Open Notify API.");
+                logger.Debug("Fetching ISS position from Open Notify API.");
 
                 var response = _httpClient.GetStringAsync("http://api.open-notify.org/iss-now.json")
                                           .GetAwaiter()
@@ -318,21 +305,21 @@ namespace WorldMapWallpaper
                 {
                     var timestamp = DateTimeOffset.FromUnixTimeSeconds(apiData.Timestamp).DateTime;
                     
-                    _logger.Debug($"ISS position from API: Lat={apiData.ISSPosition.Latitude:F3}, Lon={apiData.ISSPosition.Longitude:F3}");
+                    logger.Debug($"ISS position from API: Lat={apiData.ISSPosition.Latitude:F3}, Lon={apiData.ISSPosition.Longitude:F3}");
                     return new ISSPosition(apiData.ISSPosition.Latitude, apiData.ISSPosition.Longitude, timestamp, false);
                 }
                 else
                 {
-                    _logger.Debug("Invalid API response format or missing data.");
+                    logger.Debug("Invalid API response format or missing data.");
                 }
             }
             catch (JsonException ex)
             {
-                _logger.Debug($"Failed to parse JSON from API: {ex.Message}");
+                logger.Debug($"Failed to parse JSON from API: {ex.Message}");
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Failed to fetch ISS position from API: {ex.Message}");
+                logger.Debug($"Failed to fetch ISS position from API: {ex.Message}");
             }
             
             return null;
@@ -375,11 +362,11 @@ namespace WorldMapWallpaper
                 var json = JsonConvert.SerializeObject(cacheData, Formatting.Indented);
                 
                 File.WriteAllText(CacheFilePath, json);
-                _logger.Debug($"Cached ISS position to {CacheFilePath}");
+                logger.Debug($"Cached ISS position to {CacheFilePath}");
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Failed to cache ISS position: {ex.Message}");
+                logger.Debug($"Failed to cache ISS position: {ex.Message}");
             }
         }
 
@@ -393,7 +380,7 @@ namespace WorldMapWallpaper
             {
                 if (!File.Exists(CacheFilePath))
                 {
-                    _logger.Debug("No ISS cache file found.");
+                    logger.Debug("No ISS cache file found.");
                     return null;
                 }
 
@@ -403,7 +390,7 @@ namespace WorldMapWallpaper
                 var cacheData = JsonConvert.DeserializeObject<ISSData>(json);
                 if (cacheData?.ISSPosition == null || cacheData.OrbitalPhase == null)
                 {
-                    _logger.Debug("Failed to deserialize cache file or missing data.");
+                    logger.Debug("Failed to deserialize cache file or missing data.");
                     return null;
                 }
 
@@ -422,13 +409,13 @@ namespace WorldMapWallpaper
                 // Calculate predicted longitude using shared method
                 var predictedLon = CalculateLongitudeFromTimeOffset(cacheData.ISSPosition.Longitude, minutesElapsed);
 
-                _logger.Debug($"Predicted ISS position from {minutesElapsed:F1}min old cache: Lat={predictedLat:F3}, Lon={predictedLon:F3}");
+                logger.Debug($"Predicted ISS position from {minutesElapsed:F1}min old cache: Lat={predictedLat:F3}, Lon={predictedLon:F3}");
                 
                 return new ISSPosition(predictedLat, predictedLon, now, false);
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Failed to predict ISS position from cache: {ex.Message}");
+                logger.Debug($"Failed to predict ISS position from cache: {ex.Message}");
                 return null;
             }
         }
@@ -437,9 +424,9 @@ namespace WorldMapWallpaper
         /// Determines if the ISS is on an ascending pass (moving north) or descending pass (moving south).
         /// Uses cached data if available, otherwise makes an educated guess based on longitude.
         /// </summary>
-        /// <param name="currentPosition">Current ISS position</param>
-        /// <returns>True if ascending (moving north), false if descending (moving south)</returns>
-        private bool DetermineOrbitalDirection(ISSPosition currentPosition)
+        /// <param name="currentPosition">Current ISS position.</param>
+        /// <returns>True if ascending (moving north), false if descending (moving south).</returns>
+        private static bool DetermineOrbitalDirection(ISSPosition currentPosition)
         {
             try
             {
@@ -512,7 +499,7 @@ namespace WorldMapWallpaper
                 var inSunlight = declination >= 0 && position.Latitude >= terminatorLat ||
                                  declination < 0 && position.Latitude <= terminatorLat;
 
-                _logger.Debug($"ISS sunlight status: {(inSunlight ? "Day" : "Night")} (terminator lat: {terminatorLat:F1}°)");
+                logger.Debug($"ISS sunlight status: {(inSunlight ? "Day" : "Night")} (terminator lat: {terminatorLat:F1}°)");
                 
                 return new ISSPosition(position.Latitude, position.Longitude, position.Timestamp, inSunlight);
             }
@@ -522,8 +509,6 @@ namespace WorldMapWallpaper
                 return position;
             }
         }
-
-#pragma warning disable CA1822 // Mark members as static
 
         /// <summary>
         /// Converts ISS latitude and longitude coordinates to pixel coordinates on a world map.
@@ -536,7 +521,7 @@ namespace WorldMapWallpaper
         /// A <see cref="Point"/> representing the pixel coordinates on the map,
         /// clamped to map boundaries.
         /// </returns>
-        private Point GetPixelCoordinates(ISSPosition position, int mapWidth, int mapHeight)
+        private static Point GetPixelCoordinates(ISSPosition position, int mapWidth, int mapHeight)
         {
             // Convert lat/lon to pixel coordinates (assuming equirectangular projection)
             var x = (int)((position.Longitude + 180.0) * mapWidth / 360.0);
@@ -548,8 +533,6 @@ namespace WorldMapWallpaper
             
             return new Point(x, y);
         }
-
-#pragma warning restore CA1822 
 
         /// <summary>
         /// Draws the ISS icon on the provided graphics context at the calculated position.
@@ -574,7 +557,7 @@ namespace WorldMapWallpaper
 
             graphics.DrawImage(issIcon, drawX, drawY);
             
-            _logger.Debug($"Drew ISS at pixel coordinates ({pixelPos.X}, {pixelPos.Y})");
+            logger.Debug($"Drew ISS at pixel coordinates ({pixelPos.X}, {pixelPos.Y})");
         }
 
         /// <summary>
@@ -639,12 +622,12 @@ namespace WorldMapWallpaper
                         }
                     }
                     
-                    _logger.Debug($"Drew ISS orbit with {orbitPoints.Count} segments, current phase: {currentPhase:F1}°");
+                    logger.Debug($"Drew ISS orbit with {orbitPoints.Count} segments, current phase: {currentPhase:F1}°");
                 }
             }
             catch (Exception ex)
             {
-                _logger.Debug($"Error drawing ISS orbit: {ex.Message}");
+                logger.Debug($"Error drawing ISS orbit: {ex.Message}");
             }
         }
 
