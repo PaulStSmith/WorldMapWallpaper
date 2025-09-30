@@ -58,6 +58,81 @@ namespace WorldMapWallpaper
         private readonly Bitmap _nightIcon = Resources.ISSIcon;
 
         /// <summary>
+        /// ISS orbital parameters for calculations.
+        /// </summary>
+        private static class OrbitalConstants
+        {
+            /// <summary>
+            /// ISS orbital period in minutes.
+            /// </summary>
+            public const double OrbitalPeriodMinutes = 92.68;
+
+            /// <summary>
+            /// Earth's rotation rate in degrees per minute.
+            /// </summary>
+            public const double EarthRotationRate = 360.0 / (24.0 * 60.0);
+
+            /// <summary>
+            /// ISS maximum latitude (orbital inclination) in degrees.
+            /// </summary>
+            public const double MaxLatitude = 51.6;
+
+            /// <summary>
+            /// ISS ground speed relative to Earth's surface in degrees per minute.
+            /// </summary>
+            public static double GroundSpeed => 360.0 / OrbitalPeriodMinutes - EarthRotationRate;
+        }
+
+        /// <summary>
+        /// Calculates the current orbital phase of the ISS based on its position.
+        /// </summary>
+        /// <param name="position">Current ISS position.</param>
+        /// <param name="isAscending">Whether the ISS is on an ascending orbital pass.</param>
+        /// <returns>Orbital phase in degrees.</returns>
+        private static double CalculateOrbitalPhase(ISSPosition position, bool isAscending)
+        {
+            var basePhaseDegrees = Math.Asin(position.Latitude / OrbitalConstants.MaxLatitude) * (180.0 / Math.PI);
+            return isAscending ? basePhaseDegrees : (180.0 - basePhaseDegrees);
+        }
+
+        /// <summary>
+        /// Calculates ISS latitude at a given orbital phase.
+        /// </summary>
+        /// <param name="phaseInDegrees">Orbital phase in degrees.</param>
+        /// <returns>Latitude in degrees.</returns>
+        private static double CalculateLatitudeFromPhase(double phaseInDegrees)
+        {
+            return OrbitalConstants.MaxLatitude * Math.Sin(phaseInDegrees * Math.PI / 180.0);
+        }
+
+        /// <summary>
+        /// Calculates ISS longitude at a given time offset from a reference position.
+        /// </summary>
+        /// <param name="referenceLongitude">Reference longitude in degrees.</param>
+        /// <param name="minutesFromReference">Time offset in minutes from reference position.</param>
+        /// <returns>Predicted longitude in degrees, normalized to [-180, 180].</returns>
+        private static double CalculateLongitudeFromTimeOffset(double referenceLongitude, double minutesFromReference)
+        {
+            var longitude = referenceLongitude - (minutesFromReference * OrbitalConstants.GroundSpeed);
+            
+            // Normalize longitude to [-180, 180]
+            while (longitude > 180) longitude -= 360;
+            while (longitude < -180) longitude += 360;
+            
+            return longitude;
+        }
+
+        /// <summary>
+        /// Calculates the orbital phase change over a given time period.
+        /// </summary>
+        /// <param name="minutes">Time period in minutes.</param>
+        /// <returns>Phase change in degrees.</returns>
+        private static double CalculatePhaseChange(double minutes)
+        {
+            return (minutes / OrbitalConstants.OrbitalPeriodMinutes) * 360.0;
+        }
+
+        /// <summary>
         /// Unified ISS data class that handles both API responses and cache storage.
         /// System.Text.Json automatically handles string-to-double conversions.
         /// </summary>
@@ -274,11 +349,8 @@ namespace WorldMapWallpaper
                 // Try to determine if ISS is on ascending or descending pass
                 var isAscending = DetermineOrbitalDirection(position);
                 
-                // Calculate orbital phase for future predictions
-                var basePhaseDegrees = Math.Asin(position.Latitude / 51.6) * (180.0 / Math.PI);
-                
-                // Adjust phase based on orbital direction
-                var orbitalPhase = isAscending ? basePhaseDegrees : (180.0 - basePhaseDegrees);
+                // Calculate orbital phase for future predictions using shared method
+                var orbitalPhase = CalculateOrbitalPhase(position, isAscending);
                 
                 // Create cache data - Newtonsoft.Json handles type conversions automatically
                 var cacheData = new ISSData
@@ -340,31 +412,15 @@ namespace WorldMapWallpaper
                 var cachedTime = DateTimeOffset.FromUnixTimeSeconds(cacheData.Timestamp).UtcDateTime;
                 var minutesElapsed = (now - cachedTime).TotalMinutes;
 
-                // Don't use cache if it's too old (more than 2 hours)
-                if (Math.Abs(minutesElapsed) > 120)
-                {
-                    _logger.Debug($"Cache too old ({minutesElapsed:F1} minutes), not using for prediction.");
-                    return null;
-                }
-
-                // Predict current position using orbital mechanics
-                const double orbitalPeriod = 92.68; // minutes
-                const double earthRotationRate = 360.0 / (24.0 * 60.0); // degrees per minute
-
-                // Calculate new orbital phase
-                var phaseChange = (minutesElapsed / orbitalPeriod) * 360.0;
+                // Predict current position using shared orbital mechanics methods
+                var phaseChange = CalculatePhaseChange(minutesElapsed);
                 var currentPhase = cacheData.OrbitalPhase.Value + phaseChange;
 
-                // Calculate predicted latitude - use same formula as orbit drawing for consistency
-                var predictedLat = 51.6 * Math.Sin(currentPhase * Math.PI / 180.0);
+                // Calculate predicted latitude using shared method
+                var predictedLat = CalculateLatitudeFromPhase(currentPhase);
 
-                // Calculate predicted longitude (ISS moves west relative to Earth)
-                var issGroundSpeed = 360.0 / orbitalPeriod - earthRotationRate;
-                var predictedLon = cacheData.ISSPosition.Longitude - (minutesElapsed * issGroundSpeed);
-
-                // Normalize longitude
-                while (predictedLon > 180) predictedLon -= 360;
-                while (predictedLon < -180) predictedLon += 360;
+                // Calculate predicted longitude using shared method
+                var predictedLon = CalculateLongitudeFromTimeOffset(cacheData.ISSPosition.Longitude, minutesElapsed);
 
                 _logger.Debug($"Predicted ISS position from {minutesElapsed:F1}min old cache: Lat={predictedLat:F3}, Lon={predictedLon:F3}");
                 
@@ -534,38 +590,29 @@ namespace WorldMapWallpaper
             {
                 var orbitPoints = new List<PointF>();
                 
-                // ISS orbital parameters
-                const double orbitalPeriod = 92.68; // minutes (more accurate)
-                const double earthRotationRate = 360.0 / (24.0 * 60.0); // degrees per minute
+                // Orbit visualization parameters
                 const int orbitSegments = 100;
                 const double orbitSpan = 30.0; // ±15 minutes from current
                 
-                // Calculate what phase of the orbit the ISS is currently in
-                // Determine orbital direction to resolve sine function ambiguity
+                // Calculate what phase of the orbit the ISS is currently in using shared methods
                 var isAscending = DetermineOrbitalDirection(currentPosition);
-                var basePhaseDegrees = Math.Asin(currentPosition.Latitude / 51.6) * (180.0 / Math.PI);
-                var currentPhase = isAscending ? basePhaseDegrees : (180.0 - basePhaseDegrees);
+                var currentPhase = CalculateOrbitalPhase(currentPosition, isAscending);
                 
                 // Calculate orbit points
                 for (var i = 0; i < orbitSegments; i++)
                 {
-                    // Time offset from current position (-45 to +45 minutes)
+                    // Time offset from current position (-15 to +15 minutes)
                     var minutesFromNow = (i - orbitSegments / 2.0) * (orbitSpan / orbitSegments);
 
-                    // Orbital phase at this time
-                    var phaseAtTime = currentPhase + (minutesFromNow / orbitalPeriod) * 360.0;
+                    // Orbital phase at this time using shared method
+                    var phaseChange = CalculatePhaseChange(minutesFromNow);
+                    var phaseAtTime = currentPhase + phaseChange;
 
-                    // Calculate latitude from orbital inclination and phase
-                    var latitude = 51.6 * Math.Sin((phaseAtTime * Math.PI / 180.0));
+                    // Calculate latitude using shared method
+                    var latitude = CalculateLatitudeFromPhase(phaseAtTime);
                     
-                    // Calculate longitude: ISS ground track moves west due to Earth's rotation
-                    // ISS orbital velocity relative to Earth's surface
-                    var issGroundSpeed = 360.0 / orbitalPeriod - earthRotationRate; // degrees per minute
-                    var longitude = currentPosition.Longitude - (minutesFromNow * issGroundSpeed);
-                    
-                    // Normalize longitude to [-180, 180]
-                    while (longitude > 180) longitude -= 360;
-                    while (longitude < -180) longitude += 360;
+                    // Calculate longitude using shared method
+                    var longitude = CalculateLongitudeFromTimeOffset(currentPosition.Longitude, minutesFromNow);
                     
                     var point = GetPixelCoordinates(
                         new ISSPosition(latitude, longitude, DateTime.UtcNow, false), 
