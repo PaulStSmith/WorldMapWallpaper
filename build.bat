@@ -211,7 +211,6 @@ if !BUILD_FAILED! equ 1 (
 
 echo.
 echo All solutions built successfully!
-set cfg=
 exit /b 0
 
 :CompileSolution
