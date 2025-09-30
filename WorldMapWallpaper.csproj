@@ -13,10 +13,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove=".editorconfig" />
+    <None Remove=".gitattributes" />
+    <None Remove="CLAUDE.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Resources\Icons.ico" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.7" />
     <PackageReference Include="System.Drawing.Primitives" Version="4.3.0" />

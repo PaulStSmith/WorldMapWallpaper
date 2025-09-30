@@ -44,6 +44,10 @@ namespace WorldMapWallpaper
 
             try
             {
+                var dir = Path.GetDirectoryName(LogFile);
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir!);
+
                 using var writer = new StreamWriter(LogFile, true);
                 writer.WriteLine(log);
             }

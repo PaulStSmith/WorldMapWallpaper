@@ -130,6 +130,9 @@
   <data name="EarthNight" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Earth (Night) - 1920x1080.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="ISSIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ISSIcon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="WorldPoliticalMap" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\World Political Map - 1920x1080.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>

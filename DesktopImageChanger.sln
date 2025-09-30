@@ -8,6 +8,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F513A80D-6C3E-4D3E-AED0-AC5EF2522984}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		CLAUDE.md = CLAUDE.md
 	EndProjectSection
 EndProject
 Global

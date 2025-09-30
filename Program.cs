@@ -8,233 +8,241 @@ using WorldMapWallpaper.Properties;
 namespace WorldMapWallpaper
 {
     /// <summary>
-    /// The main class of the WorldMapWallpaper application.
+    /// The main class of the WorldMapWallpaper application.<br/>
+    /// Generates dynamic wallpapers showing day/night terminator lines and world clocks.
     /// </summary>
     internal class Program
     {
-        // For setting a string parameter
+        /// <summary>
+        /// Sets a string parameter in the system parameters.
+        /// </summary>
+        /// <param name="uiAction">The system parameter to set.</param>
+        /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being set.</param>
+        /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being set.</param>
+        /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
+        /// <returns>True if the function succeeds; otherwise, false.</returns>
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, String pvParam, SPIF fWinIni);
 
-        // For reading a string parameter
+        /// <summary>
+        /// Retrieves a string parameter from the system parameters.
+        /// </summary>
+        /// <param name="uiAction">The system parameter to retrieve.</param>
+        /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
+        /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
+        /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
+        /// <returns>True if the function succeeds; otherwise, false.</returns>
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 
+        /// <summary>
+        /// Logger instance for recording application events and debugging information.
+        /// </summary>
         static readonly Logger log = new();
 
         /// <summary>
-        /// The main entry point for the application.
+        /// Calculates the terminator latitude for a given longitude and solar parameters.
+        /// The terminator is the line that separates the illuminated day side and dark night side of Earth.
         /// </summary>
-        static void Main()
+        /// <param name="longitude">Longitude in degrees (-180 to 180).</param>
+        /// <param name="timeOffset">Time offset for terminator calculation in degrees.</param>
+        /// <param name="declination">Solar declination angle in degrees.</param>
+        /// <returns>Terminator latitude in degrees.</returns>
+        /// <remarks>
+        /// This calculation is based on the spherical geometry of Earth and the position of the sun.
+        /// The formula uses trigonometric functions to determine where the terminator line intersects
+        /// a given longitude.
+        /// </remarks>
+        public static double GetTerminatorLatitude(double longitude, double timeOffset, double declination)
         {
-            log.Info("Starting the WorldMapWallpaper application.");
+            var adjustedLongitude = longitude + timeOffset;
+            var tanLat = Trig.Cos(adjustedLongitude) / Trig.Tan(declination);
+            return Trig.Atan(tanLat);
+        }
 
-            /*
-             * Short names for the resources
-             */
-            var map = Resources.WorldPoliticalMap;
-            var day = Resources.EarthDay;
-            var night = Resources.EarthNight;
-            var clock = Resources.ClockFace32;
-
-            /*
-             *  Get current desktop wallpaper name
-             */
+        /// <summary>
+        /// Gets the next wallpaper filename, alternating between WorldMap01.jpg and WorldMap02.jpg
+        /// to avoid file locking issues.
+        /// </summary>
+        /// <returns>The full path to the next wallpaper file.</returns>
+        private static string GetNextWallpaperFileName()
+        {
             log.Info("Getting the current desktop wallpaper name.");
             var sbWPFN = new StringBuilder(256);
             SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
             var wpfn = sbWPFN.ToString();
-            log.Debug($"The current desktop wallpaper name is “{wpfn ?? "null"}”.");
+            log.Debug($"The current desktop wallpaper name is \"{wpfn ?? "null"}\".");
 
-            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "WorldMap01" + ".jpg");
+            var fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "WorldMap01.jpg");
             if (string.Compare(wpfn, fileName, true) == 0)
             {
-                fileName = wpfn.EndsWith("01.jpg", StringComparison.InvariantCultureIgnoreCase)
+                fileName = wpfn.EndsWith("01.jpg", StringComparison.OrdinalIgnoreCase)
                     ? wpfn.Replace("01.jpg", "02.jpg")
                     : wpfn.Replace("02.jpg", "01.jpg");
             }
 
-            /*
-             * The current (or specified) UTC time in seconds.
-             */
+            return fileName;
+        }
+
+        /// <summary>
+        /// Calculates solar parameters for the current UTC time.
+        /// </summary>
+        /// <returns>A tuple containing time offset and declination values.</returns>
+        private static (double TimeOffset, double Declination) CalculateSolarParameters()
+        {
             var NOW = DateTime.UtcNow;
             var TimeSeconds = NOW.Hour * 3600 + NOW.Minute * 60 + NOW.Second;
-
-            /*
-             * Since the world's borders are at longitude +-180 degrees but we are
-             * are comparing to UTC time (which takes place at longitude 0 degrees),
-             * we have to shift the time by exactly 12 hours using NOON_SECS.
-             */
+            
+            // Since the world's borders are at longitude +-180 degrees but we are
+            // comparing to UTC time (which takes place at longitude 0 degrees),
+            // we have to shift the time by exactly 12 hours using NOON_SECS.
             var NoonSeconds = 86400 / 2;
-
-            /*
-             * We calculate the horizontal offset on the basis of seconds. Therefore we
-             * divide the maximum offset (360) by the amount of seconds in a day.
-             */
+            
+            // We calculate the horizontal offset on the basis of seconds. Therefore we
+            // divide the maximum offset (360) by the amount of seconds in a day.
             var AngleStep = (double)360 / 86400;
-
-            /*
-             * Now let's add everything together... the offset is now in the
-             * range of [0, 360)
-             */
+            
+            // Now let's add everything together... the offset is now in the
+            // range of [0, 360)
             var TimeOffset = (TimeSeconds + NoonSeconds) * AngleStep;
 
-            /*
-             * And now the vertical offset... throughout the year, the sun's position
-             * varies between +-23.44 degrees around the equatorial line (it's exactly
-             * over the equator on the vernal and autumnal equinox, 23.44° north at the
-             * summer solstice and 23.44° south at the winter solstice). Between those
-             * dates, the sun moves on a sine wave.
-             *
-             * The first thing we do is calculating the sun's position by using the
-             * vernal equinox as a reference point.
-             */
+            // Calculate the sun's position throughout the year using vernal equinox
             var DayOfYear = NOW.DayOfYear;
-            /*
-             * Calculate the Vernal Equinox.
-             * found here:
-             * https://astronomy.stackexchange.com/questions/43283/accuracy-of-calculating-the-vernal-equinox
-             * 
-             * Vernal Equinox for year 2000 A.D. was March 20, 7:36 GMT
-             * Autumnal Equinox for year 2000 A.D. was September 22 at 13:11 GMT
-             */
             var VE2000 = new DateTime(2000, 03, 20, 07, 36, 0);
             var VE = VE2000.AddDays((double)(NOW.Year - 2000) * 365.2425);
             var VernalEquinox = VE.DayOfYear;
-            // var AE2000 = new DateTime(2000, 09, 22, 13, 11, 0);
-            // var AutumnalEquinox = AE2000.AddDays((double)(NOW.Year - 2000) * 365.2425).DayOfYear;
 
             log.Debug($"The current UTC time is {NOW}.");
             log.Debug($"Calculated Vernal Equinox is {VE}.");
 
-            /*
-             * Prepares the clip area
-             */
+            var MaxDeclination = 23.44;
+            var Declination = Trig.Sin(360.0 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
+
+            return (TimeOffset, Declination);
+        }
+
+        /// <summary>
+        /// Generates the terminator curve points for day/night boundary.
+        /// </summary>
+        /// <param name="timeOffset">Time offset for calculation.</param>
+        /// <param name="declination">Solar declination.</param>
+        /// <param name="imageWidth">Image width.</param>
+        /// <param name="imageHeight">Image height.</param>
+        /// <returns>List of points defining the terminator curve.</returns>
+        private static List<PointF> GenerateTerminatorCurve(double timeOffset, double declination, int imageWidth, int imageHeight)
+        {
+            log.Info("Calculating the points of the terminator curve.");
+            
             var pts = new List<PointF>(new PointF[]
             {
-                new Point(day.Width, 0)
-               ,new Point(0,0)
+                new Point(imageWidth, 0),
+                new Point(0, 0)
             });
 
-            /*
-             * Calculates the points of the terminator curve.
-             */
-            log.Info("Calculating the points of the terminator curve.");
-
-            var MaxDeclination = 23.44;
-            var declination = Trig.Sin(360.0 * (DayOfYear - VernalEquinox) / 365) * MaxDeclination;
-            var y0 = (float)day.Height / 2;
-            var x0 = (float)day.Width / 2;
-            var xs = (float)day.Width / 360;
-            var ys = (float)day.Height / 180;
+            var y0 = (float)imageHeight / 2;
+            var x0 = (float)imageWidth / 2;
+            var xs = (float)imageWidth / 360;
+            var ys = (float)imageHeight / 180;
+            
             for (var a = -180; a <= 180; a++)
             {
-                var longitude = a + TimeOffset;
-                var tanLat = Trig.Cos(longitude) / Trig.Tan(declination);
-                var arctanLat = Trig.Atan(tanLat);
+                var arctanLat = GetTerminatorLatitude(a, timeOffset, declination);
                 var y = y0 + (float)(arctanLat * ys);
                 var x = x0 + (a * xs);
                 pts.Add(new PointF(x, y));
             }
-            pts.Add(new Point(day.Width, 0));
+            pts.Add(new Point(imageWidth, 0));
 
-            /*
-             * Generates the alpha mask
-             */
+            return pts;
+        }
+
+        /// <summary>
+        /// Creates the alpha mask for blending day and night regions.
+        /// </summary>
+        /// <param name="terminatorPoints">Points defining the terminator curve.</param>
+        /// <param name="declination">Solar declination.</param>
+        /// <param name="imageWidth">Image width.</param>
+        /// <param name="imageHeight">Image height.</param>
+        /// <returns>Alpha mask bitmap.</returns>
+        private static Bitmap CreateAlphaMask(List<PointF> terminatorPoints, double declination, int imageWidth, int imageHeight)
+        {
             log.Info("Generating the alpha mask.");
-            var bmpAlphaMask = new Bitmap(day.Width, day.Height);
+            var bmpAlphaMask = new Bitmap(imageWidth, imageHeight);
             using (var g = Graphics.FromImage(bmpAlphaMask))
             {
-                g.FillRectangle((declination >= 0) ? Brushes.Black : Brushes.White, new RectangleF(0, 0, day.Width, day.Height));
-                g.FillClosedCurve((declination >= 0) ? Brushes.White : Brushes.Black, pts.ToArray());
+                g.FillRectangle((declination >= 0) ? Brushes.Black : Brushes.White, new RectangleF(0, 0, imageWidth, imageHeight));
+                g.FillClosedCurve((declination >= 0) ? Brushes.White : Brushes.Black, terminatorPoints.ToArray());
             }
-            bmpAlphaMask = GaussianBlur.Apply(bmpAlphaMask, 16);
-            // bmpAlphaMask.Save(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "AlphaMask.jpg"), ImageFormat.Jpeg);
+            return GaussianBlur.Apply(bmpAlphaMask, 16);
+        }
 
-            /*
-             * Draws the image
-             */
-            log.Info("Drawing the image.");
-            using (var g = Graphics.FromImage(night))
+        /// <summary>
+        /// Draws timezone clocks on the image.
+        /// </summary>
+        /// <param name="graphics">Graphics context.</param>
+        /// <param name="clockImage">Clock face image.</param>
+        /// <param name="currentTime">Current UTC time.</param>
+        /// <param name="imageWidth">Image width.</param>
+        /// <param name="imageHeight">Image height.</param>
+        private static void DrawTimezonClocks(Graphics graphics, Bitmap clockImage, DateTime currentTime, int imageWidth, int imageHeight)
+        {
+            log.Debug("Drawing the clock faces.");
+            var tz = (float)imageWidth / 24;
+            var dx = tz / 2;
+            var x0 = (float)imageWidth / 2;
+            
+            for (var a = -12; a <= 12; a++)
             {
-                var bmpDayTime = (Bitmap)day.Clone();
-                log.Debug("Apply the alpha mask to the day image.");
-                SetAlphaMask(bmpDayTime, bmpAlphaMask);
-                log.Debug("Drawing the day image over the night image.");
-                g.DrawImage(bmpDayTime, 0, 0);
+                var x = x0 + (float)(a * tz);
 
-                /*
-                 * Draw the political map
-                 */
-                log.Debug("Drawing the political map.");
-                g.DrawImage(map, 0, 0, bmpDayTime.Width, bmpDayTime.Height);
+                // Draw the clock line
+                using (var p = new Pen(Color.FromArgb(6, 255, 255, 255), 1))
+                    graphics.DrawLine(p, x - dx, 0, x - dx, imageHeight);
 
-                /*
-                 * Draws the clock faces
-                 */
-                log.Debug("Drawing the clock faces.");
-                var tz = (float)day.Width / 24;
-                var dx = tz / 2;
-                for (var a = -12; a <= 12; a++)
-                {
-                    /*
-                     * Calculates the time zone line
-                     */
-                    var x = x0 + (float)(a * tz);
+                // Draw clock face
+                graphics.DrawImage(clockImage, new RectangleF(x - clockImage.Width / 2, 5, clockImage.Width, clockImage.Height), 
+                                 new RectangleF(0, 0, clockImage.Width, clockImage.Height), GraphicsUnit.Pixel);
 
-                    /*
-                     * Draw the clock line
-                     */
-                    using (var p = new Pen(Color.FromArgb(6, 255, 255, 255), 1))
-                        g.DrawLine(p, x - dx, 0, x - dx, bmpDayTime.Height);
+                // Draw clock hands
+                var y = (float)(5 + (clockImage.Height / 2));
+                var handLength = (float)(clockImage.Width / 3);
+                var centerPoint = new PointF(x, y);
+                const int alphaHand = 64;
 
-                    /*
-                     * I think that the internal resolution 
-                     * of the images are different.
-                     * Writing this way solved the problem.
-                     */
-                    g.DrawImage(clock, new RectangleF(x - clock.Width / 2, 5, clock.Width, clock.Height), new RectangleF(0, 0, clock.Width, clock.Height), GraphicsUnit.Pixel);
+                var hc = currentTime.AddHours(a);
+                var ah = 30 * ((hc.Minute / 360) + hc.Hour < 12 ? hc.Hour : hc.Hour - 12) - 90;
+                var xh = (float)(x + handLength * Trig.Cos(ah));
+                var yh = (float)((5 + (clockImage.Height / 2)) + handLength * Trig.Sin(ah));
 
-                    /*
-                     * Draw the clock hands
-                     */
-                    var y = (float)(5 + (clock.Height / 2));
-                    var handLength = (float)(clock.Width / 3);
-                    var centerPoint = new PointF(x, y);
-                    const int alphaHand = 64;
+                var am = 6 * hc.Minute - 90;
+                var xm = (float)(x + handLength * Trig.Cos(am));
+                var ym = (float)((5 + (clockImage.Height / 2)) + handLength * Trig.Sin(am));
 
-                    var hc = NOW.AddHours(a);
-                    var ah = 30 * ((hc.Minute / 360) + hc.Hour < 12 ? hc.Hour : hc.Hour - 12) - 90;
-                    var xh = (float)(x + handLength * Trig.Cos(ah));
-                    var yh = (float)((5 + (clock.Height / 2)) + handLength * Trig.Sin(ah));
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-                    var am = 6 * hc.Minute - 90;
-                    var xm = (float)(x + handLength * Trig.Cos(am));
-                    var ym = (float)((5 + (clock.Height / 2)) + handLength * Trig.Sin(am));
+                using (var p = new Pen(Color.FromArgb(alphaHand, Color.Red), 3))
+                    graphics.DrawLine(p, centerPoint, new PointF(xh, yh));
 
-                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-                    using (var p = new Pen(Color.FromArgb(alphaHand, Color.Red), 3))
-                        g.DrawLine(p, centerPoint, new PointF(xh, yh));
-
-                    using (var p = new Pen(Color.FromArgb(alphaHand, Color.Red), 2))
-                        g.DrawLine(p, centerPoint, new PointF(xm, ym));
-                }
+                using (var p = new Pen(Color.FromArgb(alphaHand, Color.Red), 2))
+                    graphics.DrawLine(p, centerPoint, new PointF(xm, ym));
             }
+        }
 
-            log.Info($"Saving the new wallpaper to “{fileName}”.");
-            night.Save(fileName);
-
-            /*
-             * Waits for the file to  be saved.
-             */
+        /// <summary>
+        /// Sets the generated image as desktop wallpaper and cleans up the previous file.
+        /// </summary>
+        /// <param name="fileName">Path to the wallpaper file.</param>
+        /// <param name="previousWallpaper">Path to the previous wallpaper file.</param>
+        private static void SetDesktopWallpaper(string fileName, string? previousWallpaper)
+        {
             var timeOut = false;
             log.Debug("Waiting for the file to be saved.");
+            var startTime = DateTime.UtcNow;
             while (!File.Exists(fileName))
             {
-                var elapsed = DateTime.UtcNow - NOW;
+                var elapsed = DateTime.UtcNow - startTime;
                 if (elapsed.TotalSeconds > 5)
                 {
                     timeOut = true;
@@ -243,34 +251,22 @@ namespace WorldMapWallpaper
                 Thread.Sleep(1);
             }
 
-            /*
-             * Sets the desktop image.6
-             */
             if (!timeOut)
             {
                 log.Info("Setting the desktop wallpaper.");
                 SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
 
-                /*
-                 * The following line was added 
-                 * because the wallpaper was not 
-                 * updated immediately.
-                 * 
-                 * This workaround was found here:
-                 * https://stackoverflow.com/a/19732915/44375
-                 */
+                // Refresh the desktop to ensure wallpaper updates immediately
                 log.Debug("Refreshing the desktop.");
-                Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true).Close();
+                Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true)?.Close();
 
-                /*
-                 * Deletes the previous wallpaper file
-                 */
+                // Delete the previous wallpaper file
                 try
                 {
-                    if (!string.IsNullOrEmpty(wpfn) && File.Exists(wpfn))
+                    if (!string.IsNullOrEmpty(previousWallpaper) && File.Exists(previousWallpaper))
                     {
-                        log.Info($"Deleting the previous wallpaper file “{wpfn}”.");
-                        File.Delete(wpfn);
+                        log.Info($"Deleting the previous wallpaper file \"{previousWallpaper}\".");
+                        File.Delete(previousWallpaper);
                     }
                 }
                 catch { }
@@ -278,17 +274,107 @@ namespace WorldMapWallpaper
         }
 
         /// <summary>
-        /// Applies the specified alpha mask to the specified image.
+        /// The main entry point for the WorldMapWallpaper application.
+        /// Generates a dynamic wallpaper showing the current day/night terminator line
+        /// and world time zone clocks, then sets it as the desktop wallpaper.
         /// </summary>
-        /// <param name="image">An image to apply the alpha mask.</param>
-        /// <param name="alphaMask">An alpha mask.</param>
+        static void Main()
+        {
+            log.Info("Starting the WorldMapWallpaper application.");
+
+            try
+            {
+                // Load resources
+                var map = Resources.WorldPoliticalMap;
+                var day = Resources.EarthDay;
+                var night = Resources.EarthNight;
+                var clock = Resources.ClockFace32;
+
+                // Get wallpaper filename and remember current one for cleanup
+                var currentWallpaper = GetCurrentWallpaperPath();
+                var fileName = GetNextWallpaperFileName();
+
+                // Calculate solar parameters
+                var (timeOffset, declination) = CalculateSolarParameters();
+                var currentTime = DateTime.UtcNow;
+
+                // Generate terminator curve
+                var terminatorPoints = GenerateTerminatorCurve(timeOffset, declination, day.Width, day.Height);
+
+                // Create alpha mask for day/night blending
+                var alphaMask = CreateAlphaMask(terminatorPoints, declination, day.Width, day.Height);
+
+                // Composite the final image
+                log.Info("Drawing the image.");
+                using (var g = Graphics.FromImage(night))
+                {
+                    // Apply day/night blending
+                    var dayImageCopy = (Bitmap)day.Clone();
+                    log.Debug("Apply the alpha mask to the day image.");
+                    SetAlphaMask(dayImageCopy, alphaMask);
+                    log.Debug("Drawing the day image over the night image.");
+                    g.DrawImage(dayImageCopy, 0, 0);
+
+                    // Draw political map overlay
+                    log.Debug("Drawing the political map.");
+                    g.DrawImage(map, 0, 0, day.Width, day.Height);
+
+                    // Draw timezone clocks
+                    DrawTimezonClocks(g, clock, currentTime, day.Width, day.Height);
+                }
+
+                // Add ISS tracking
+                var issTracker = new ISSTracker(log, timeOffset, declination);
+                var finalImage = issTracker.PlotISS(night);
+
+                // Save and set wallpaper
+                log.Info($"Saving the new wallpaper to \"{fileName}\".");
+                finalImage.Save(fileName);
+
+                SetDesktopWallpaper(fileName, currentWallpaper);
+
+                log.Info("WorldMapWallpaper application completed successfully.");
+            }
+            catch (Exception ex)
+            {
+                log.Info($"Error in WorldMapWallpaper application: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Gets the current desktop wallpaper path.
+        /// </summary>
+        /// <returns>Current wallpaper path or null if unavailable.</returns>
+        private static string? GetCurrentWallpaperPath()
+        {
+            var sbWPFN = new StringBuilder(256);
+            SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
+            return sbWPFN.ToString();
+        }
+
+        /// <summary>
+        /// Applies the specified alpha mask to the specified image.
+        /// This method modifies the alpha channel of the target image based on the grayscale values
+        /// of the alpha mask, enabling smooth blending between day and night regions.
+        /// </summary>
+        /// <param name="image">The image to apply the alpha mask to. Must be in 32bpp ARGB format.</param>
+        /// <param name="alphaMask">The alpha mask to apply. Must be a grayscale image of the same size as the target image.</param>
         /// <remarks>
-        /// The alpha mask must be a grayscale image. <br/>
+        /// The alpha mask must be a grayscale image where:
+        /// <list type="bullet">
+        /// <item><description>White pixels (255) result in full opacity (255 alpha)</description></item>
+        /// <item><description>Black pixels (0) result in full transparency (0 alpha)</description></item>
+        /// <item><description>Gray pixels result in partial transparency</description></item>
+        /// </list>
         /// <br/>
-        /// Adapted from  <br/>
-        /// https://danbystrom.se/2008/08/24/soft-edged-images-in-gdi/
+        /// This method uses unsafe code for performance optimization when processing large images.
+        /// <br/>
+        /// Adapted from <i>(accessed 2023-08-23)</i>:<br/>
+        /// <a href="https://danbystrom.se/2008/08/24/soft-edged-images-in-gdi/">https://danbystrom.se/2008/08/24/soft-edged-images-in-gdi/</a><br/>
         /// </remarks>
-        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="ArgumentNullException">Thrown when either <paramref name="image"/> or <paramref name="alphaMask"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the image and alpha mask have different dimensions.</exception>
         public static void SetAlphaMask(Bitmap image, Bitmap alphaMask)
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
