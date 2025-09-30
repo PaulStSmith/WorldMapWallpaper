@@ -66,6 +66,11 @@ if !ERRORLEVEL! neq 0 (
     exit /b 1
 )
 
+if /i "%cfg%" == "Debug" (
+    echo Debug build completed successfully. No release will be created.
+    exit /b 0
+)"
+
 REM Publish the application
 echo [3/5] Publishing application...
 call :PublishApplication

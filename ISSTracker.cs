@@ -557,7 +557,51 @@ namespace WorldMapWallpaper
 
             graphics.DrawImage(issIcon, drawX, drawY);
             
+            // Draw ISS info text under the icon
+            DrawISSInfo(graphics, position, pixelPos.X, drawY + issIcon.Height + 2);
+            
             logger.Debug($"Drew ISS at pixel coordinates ({pixelPos.X}, {pixelPos.Y})");
+        }
+
+        /// <summary>
+        /// Draws ISS information text under the icon with name, coordinates, and UTC time.
+        /// </summary>
+        /// <param name="graphics">The graphics context to draw on.</param>
+        /// <param name="position">The ISS position data.</param>
+        /// <param name="centerX">X coordinate to center the text horizontally.</param>
+        /// <param name="startY">Y coordinate where the text starts.</param>
+        private static void DrawISSInfo(Graphics graphics, ISSPosition position, int centerX, int startY)
+        {
+            using var font = new Font("Arial", 7f, FontStyle.Regular);
+            using var whiteBrush = new SolidBrush(Color.White);
+            using var shadowBrush = new SolidBrush(Color.FromArgb(128, Color.Black));
+            
+            var format = new StringFormat { Alignment = StringAlignment.Center };
+            
+            // Format coordinates with proper hemisphere indicators
+            var latDir = position.Latitude >= 0 ? "N" : "S";
+            var lonDir = position.Longitude >= 0 ? "E" : "W";
+            var latValue = Math.Abs(position.Latitude);
+            var lonValue = Math.Abs(position.Longitude);
+            
+            var lines = new[]
+            {
+                "ISS",
+                $"{latValue:F2}{latDir} {lonValue:F2}{lonDir}",
+                $"{position.Timestamp:HH:mm} UTC"
+            };
+            
+            var lineHeight = graphics.MeasureString("A", font).Height;
+            
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var y = startY + (i * lineHeight);
+                
+                // Draw shadow offset by 1 pixel
+                graphics.DrawString(lines[i], font, shadowBrush, centerX + 1, y + 1, format);
+                // Draw main text
+                graphics.DrawString(lines[i], font, whiteBrush, centerX, y, format);
+            }
         }
 
         /// <summary>
