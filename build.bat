@@ -138,24 +138,7 @@ if exist "Install.exe" (
             )
             
             echo Creating release v!VERSION! with installer...
-            gh release create "v!VERSION!" Install.exe --title "WorldMapWallpaper v!VERSION!" --notes "## WorldMapWallpaper Release v!VERSION!
-
-### What's New
-- Real-time day/night cycle visualization
-- International Space Station tracking  
-- Enhanced wallpaper generation
-
-### Installation
-Download and run **Install.exe** to install WorldMapWallpaper.
-
-The application will automatically:
-- Set up scheduled tasks for automatic wallpaper updates
-- Create necessary Windows Event Log sources
-- Configure proper permissions
-
-### System Requirements
-- Windows 10 version 1809 or later
-- .NET 9.0 Runtime (included in installer)"
+            gh release create "v!VERSION!" Install.exe --title "WorldMapWallpaper v!VERSION!" --notes "WorldMapWallpaper Release v!VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
             
             if !ERRORLEVEL! equ 0 (
                 echo GitHub release created successfully!
