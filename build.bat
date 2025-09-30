@@ -122,12 +122,46 @@ if exist "Install.exe" (
             echo gh api repos/:owner/:repo/dispatches -f event_type=create-release
         ) else (
             echo Creating GitHub release...
-            gh api repos/:owner/:repo/dispatches -f event_type=create-release
+            
+            REM Get version from AssemblyInfo.cs
+            set "VERSION="
+            for /f "tokens=2 delims=(" %%a in ('findstr "AssemblyVersion" Properties\AssemblyInfo.cs') do (
+                for /f "tokens=1 delims=)" %%b in ("%%a") do (
+                    set VERSION=%%b
+                    set VERSION=!VERSION:"=!
+                )
+            )
+            
+            if "!VERSION!"=="" (
+                echo ERROR: Could not extract version from AssemblyInfo.cs
+                exit /b 1
+            )
+            
+            echo Creating release v!VERSION! with installer...
+            gh release create "v!VERSION!" Install.exe --title "WorldMapWallpaper v!VERSION!" --notes "## WorldMapWallpaper Release v!VERSION!
+
+### What's New
+- Real-time day/night cycle visualization
+- International Space Station tracking  
+- Enhanced wallpaper generation
+
+### Installation
+Download and run **Install.exe** to install WorldMapWallpaper.
+
+The application will automatically:
+- Set up scheduled tasks for automatic wallpaper updates
+- Create necessary Windows Event Log sources
+- Configure proper permissions
+
+### System Requirements
+- Windows 10 version 1809 or later
+- .NET 9.0 Runtime (included in installer)"
+            
             if !ERRORLEVEL! equ 0 (
-                echo GitHub release workflow triggered successfully!
-                echo Check https://github.com/%USERNAME%/DesktopImageChanger/actions for progress.
+                echo GitHub release created successfully!
+                echo View at: https://github.com/PaulStSmith/DesktopImageChanger/releases/tag/v!VERSION!
             ) else (
-                echo ERROR: Failed to trigger GitHub release workflow.
+                echo ERROR: Failed to create GitHub release.
                 echo Make sure you're authenticated with: gh auth login
             )
         )
