@@ -20,6 +20,9 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+        
     - name: Install NSIS
       run: |
         choco install nsis -y
@@ -27,7 +30,15 @@ jobs:
     - name: Build and create installer
       run: |
         echo "Building WorldMapWallpaper..."
-        dotnet publish WorldMapWallpaper.csproj -p:PublishProfile=Publish_x64 --verbosity minimal
+        
+        # Clean previous build
+        if (Test-Path "bin\publish-64\") { Remove-Item -Recurse -Force "bin\publish-64\" }
+        
+        # Build solution first
+        msbuild DesktopImageChanger.sln /p:Configuration=Release /p:Platform="Any CPU" /p:RuntimeIdentifiers=win-x64 /v:m
+        
+        # Publish with MSBuild (not dotnet publish to avoid assembly info conflicts)
+        msbuild WorldMapWallpaper.csproj /p:PublishProfile=Publish_x64 /p:Configuration=Release /t:Publish /v:m
         
         echo "Creating installer..."
         makensis InstallMaker.nsi
