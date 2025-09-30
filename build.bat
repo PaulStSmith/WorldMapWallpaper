@@ -111,18 +111,10 @@ echo.
 echo Published files: %PROJECT_DIR%bin\publish-64\
 if not exist "Install.exe" (
     echo WARNING: Install.exe not found.
-    if /i "%cfg%"=="Release" (
-        echo Cannot create release without installer!
-        exit /b 1
-    )
+    echo Cannot create release without installer!
+    exit /b 1
 )
 echo Installer created: %PROJECT_DIR%Install.exe
-echo.
-echo. Configuration: %cfg%
-if /i "%cfg%"!="Release" (
-    echo Debug build completed. No release created.
-    exit /b 0
-)
 echo [RELEASE] Triggering GitHub release...
 echo.
         
