@@ -63,7 +63,6 @@ If using Windows Task Scheduler manually, ensure:
 
 ## Example Output
 
-The desktop wallpaper will show:
 ![World map with day/night cycle](https://paulstsmith.github.io/images/worldTimeMap.jpg)
 
 *The actual wallpaper includes real-time terminator calculations, timezone clocks, and ISS position overlay.*

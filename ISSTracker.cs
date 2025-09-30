@@ -337,7 +337,7 @@ namespace WorldMapWallpaper
 
                 // Calculate time elapsed since cache
                 var now = DateTime.UtcNow;
-                var cachedTime = DateTimeOffset.FromUnixTimeSeconds(cacheData.Timestamp).DateTime;
+                var cachedTime = DateTimeOffset.FromUnixTimeSeconds(cacheData.Timestamp).UtcDateTime;
                 var minutesElapsed = (now - cachedTime).TotalMinutes;
 
                 // Don't use cache if it's too old (more than 2 hours)
