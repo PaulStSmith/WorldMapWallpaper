@@ -135,11 +135,11 @@ namespace WorldMapWallpaper
         {
             log.Info("Calculating the points of the terminator curve.");
             
-            var pts = new List<PointF>(new PointF[]
-            {
+            var pts = new List<PointF>(
+            [
                 new Point(imageWidth, 0),
                 new Point(0, 0)
-            });
+            ]);
 
             var y0 = (float)imageHeight / 2;
             var x0 = (float)imageWidth / 2;
