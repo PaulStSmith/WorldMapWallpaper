@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.6.33717.318
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorldMapWallpaper", "WorldMapWallpaper.csproj", "{1290D9DD-B84C-4CED-8BE7-30B491882180}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorldMapWallpaper", "ImagePainter\WorldMapWallpaper.csproj", "{1290D9DD-B84C-4CED-8BE7-30B491882180}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F513A80D-6C3E-4D3E-AED0-AC5EF2522984}"
 	ProjectSection(SolutionItems) = preProject
