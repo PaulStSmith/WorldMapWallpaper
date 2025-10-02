@@ -23,7 +23,7 @@ namespace WorldMapWallpaper
         /// <returns>True if the function succeeds; otherwise, false.</returns>
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, String pvParam, SPIF fWinIni);
+        static extern bool SystemParametersInfo(Shared.SPI uiAction, uint uiParam, String pvParam, Shared.SPIF fWinIni);
 
         /// <summary>
         /// Retrieves a string parameter from the system parameters.
@@ -35,7 +35,7 @@ namespace WorldMapWallpaper
         /// <returns>True if the function succeeds; otherwise, false.</returns>
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
+        static extern bool SystemParametersInfo(Shared.SPI uiAction, uint uiParam, StringBuilder pvParam, Shared.SPIF fWinIni);
 
         /// <summary>
         /// Logger instance for recording application events and debugging information.
@@ -71,7 +71,7 @@ namespace WorldMapWallpaper
         {
             log.Info("Getting the current desktop wallpaper name.");
             var sbWPFN = new StringBuilder(256);
-            SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
+            SystemParametersInfo(Shared.SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, Shared.SPIF.None);
             var wpfn = sbWPFN.ToString();
             log.Debug($"The current desktop wallpaper name is \"{wpfn ?? "null"}\".");
 
@@ -79,8 +79,8 @@ namespace WorldMapWallpaper
             if (string.Compare(wpfn, fileName, true) == 0)
             {
                 fileName = wpfn.EndsWith("01.jpg", StringComparison.OrdinalIgnoreCase)
-                    ? wpfn.Replace("01.jpg", "02.jpg")
-                    : wpfn.Replace("02.jpg", "01.jpg");
+                         ? wpfn.Replace("01.jpg", "02.jpg")
+                         : wpfn.Replace("02.jpg", "01.jpg");
             }
 
             return fileName;
@@ -254,7 +254,7 @@ namespace WorldMapWallpaper
             if (!timeOut)
             {
                 log.Info("Setting the desktop wallpaper.");
-                SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
+                SystemParametersInfo(Shared.SPI.SPI_SETDESKWALLPAPER, 0, fileName, Shared.SPIF.UpdateIniFile | Shared.SPIF.SendChange);
 
                 // Refresh the desktop to ensure wallpaper updates immediately
                 log.Debug("Refreshing the desktop.");
@@ -291,7 +291,7 @@ namespace WorldMapWallpaper
                 var clock = Resources.ClockFace32;
 
                 // Get wallpaper filename and remember current one for cleanup
-                var currentWallpaper = GetCurrentWallpaperPath();
+                var currentWallpaper = Shared.WallpaperMonitor.GetCurrentWallpaperPath();
                 var fileName = GetNextWallpaperFileName();
 
                 // Calculate solar parameters
@@ -340,17 +340,6 @@ namespace WorldMapWallpaper
                 log.Info($"Error in WorldMapWallpaper application: {ex.Message}");
                 throw;
             }
-        }
-
-        /// <summary>
-        /// Gets the current desktop wallpaper path.
-        /// </summary>
-        /// <returns>Current wallpaper path or null if unavailable.</returns>
-        private static string? GetCurrentWallpaperPath()
-        {
-            var sbWPFN = new StringBuilder(256);
-            SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
-            return sbWPFN.ToString();
         }
 
         /// <summary>

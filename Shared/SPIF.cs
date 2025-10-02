@@ -1,4 +1,4 @@
-﻿namespace WorldMapWallpaper
+﻿namespace WorldMapWallpaper.Shared
 {
     /// <summary>
     /// Flags to specify how the system parameter information function (SPI) applies changes.

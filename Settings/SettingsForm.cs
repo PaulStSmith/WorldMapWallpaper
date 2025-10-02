@@ -154,11 +154,22 @@ public partial class SettingsForm : Form
         {
             Text = "More frequent updates ensure accurate day/night cycles.",
             Location = new Point(15, 60),
-            Size = new Size(updateGroup.Width - 30, 30),
+            Size = new Size(updateGroup.Width - 30, 15),
             Font = new Font("Segoe UI", 8F),
             ForeColor = SystemColors.GrayText
         };
         updateGroup.Controls.Add(infoLabel);
+
+        // Add task status label
+        var taskStatusLabel = new Label
+        {
+            Text = GetTaskStatusText(),
+            Location = new Point(15, 75),
+            Size = new Size(updateGroup.Width - 30, 15),
+            Font = new Font("Segoe UI", 8F),
+            ForeColor = TaskManager.IsTaskEnabled() ? Color.Green : Color.Red
+        };
+        updateGroup.Controls.Add(taskStatusLabel);
 
         currentY += 120;
 
@@ -314,6 +325,34 @@ public partial class SettingsForm : Form
         _wallpaperMonitor?.Stop();
         _wallpaperMonitor?.Dispose();
         base.OnFormClosed(e);
+    }
+
+    /// <summary>
+    /// Gets the current task status as a user-friendly string.
+    /// </summary>
+    /// <returns>A string describing the current task status.</returns>
+    private static string GetTaskStatusText()
+    {
+        if (!TaskManager.TaskExists())
+            return "Task not found - reinstall may be required";
+
+        if (!TaskManager.IsTaskEnabled())
+            return "Task is disabled";
+
+        var taskInfo = TaskManager.GetTaskInfo();
+        if (taskInfo.HasValue)
+        {
+            var (state, nextRun) = taskInfo.Value;
+            var nextRunText = nextRun?.ToString("MMM d, h:mm tt") ?? "Not scheduled";
+            
+            // Get trigger count for additional info
+            var triggers = TaskManager.GetTriggerInfo();
+            var triggerCount = triggers.Count;
+            
+            return $"Task active with {triggerCount} triggers - Next: {nextRunText}";
+        }
+
+        return "Task status unknown";
     }
 
     // Helper class for ComboBox items

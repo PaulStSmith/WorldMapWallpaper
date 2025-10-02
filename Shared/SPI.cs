@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace WorldMapWallpaper
+namespace WorldMapWallpaper.Shared
 {
     /// <summary>
     /// SPI_ System-wide parameter - Used in SystemParametersInfo function

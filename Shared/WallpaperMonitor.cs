@@ -1,5 +1,7 @@
 using Microsoft.Win32;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace WorldMapWallpaper.Shared;
 
@@ -28,8 +30,7 @@ public class WallpaperMonitor : IDisposable
     /// </summary>
     public void Start()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(WallpaperMonitor));
+        ObjectDisposedException.ThrowIf(_disposed, nameof(WallpaperMonitor));
 
         // Get initial wallpaper path
         _lastWallpaperPath = GetCurrentWallpaperPath();
@@ -76,12 +77,13 @@ public class WallpaperMonitor : IDisposable
     /// Gets the current wallpaper path from the Windows registry.
     /// </summary>
     /// <returns>The current wallpaper file path, or null if it can't be determined.</returns>
-    private static string? GetCurrentWallpaperPath()
+    public static string? GetCurrentWallpaperPath()
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(WallpaperRegistryPath);
-            return key?.GetValue(WallpaperValueName)?.ToString();
+            var sbWPFN = new StringBuilder(256);
+            SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
+            return sbWPFN.ToString();
         }
         catch
         {
@@ -104,12 +106,11 @@ public class WallpaperMonitor : IDisposable
             // Check if the wallpaper path contains our application directory or temp files
             var fileName = Path.GetFileName(wallpaperPath);
             var directory = Path.GetDirectoryName(wallpaperPath);
+            var picFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
 
             // Our wallpaper files typically have specific naming patterns
-            return fileName?.StartsWith("WorldMapWallpaper", StringComparison.OrdinalIgnoreCase) == true ||
-                   fileName?.StartsWith("worldmap", StringComparison.OrdinalIgnoreCase) == true ||
-                   directory?.Contains("WorldMapWallpaper", StringComparison.OrdinalIgnoreCase) == true ||
-                   directory?.Contains("Temp", StringComparison.OrdinalIgnoreCase) == true; // Our temp files
+            return fileName?.StartsWith("worldmap", StringComparison.OrdinalIgnoreCase) == true ||
+                   directory?.Contains(picFolder, StringComparison.OrdinalIgnoreCase) == true;
         }
         catch
         {
@@ -139,4 +140,28 @@ public class WallpaperMonitor : IDisposable
         }
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// Sets a string parameter in the system parameters.
+    /// </summary>
+    /// <param name="uiAction">The system parameter to set.</param>
+    /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being set.</param>
+    /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being set.</param>
+    /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
+    /// <returns>True if the function succeeds; otherwise, false.</returns>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, String pvParam, SPIF fWinIni);
+
+    /// <summary>
+    /// Retrieves a string parameter from the system parameters.
+    /// </summary>
+    /// <param name="uiAction">The system parameter to retrieve.</param>
+    /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
+    /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
+    /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
+    /// <returns>True if the function succeeds; otherwise, false.</returns>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 }
