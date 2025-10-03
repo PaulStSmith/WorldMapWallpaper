@@ -115,7 +115,7 @@ echo              BUILD COMPLETED
 echo ===============================================
 echo.
 echo Published files: %PROJECT_DIR%ImagePainter\bin\publish-64\
-if not exist "Install.exe" (
+if not exist "%PROJECT_DIR%Install.exe" (
     echo WARNING: Install.exe not found.
     echo Cannot create release without installer!
     exit /b 1
