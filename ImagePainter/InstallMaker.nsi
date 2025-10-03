@@ -17,11 +17,11 @@
 
 ;
 ; ========================================
-; Build Configuration - CHANGE HERE FOR DIFFERENT BUILDS
+; Build Configuration - SIMPLIFIED FOR PUBLISHED BUILDS
 ; ========================================
+; Now uses the published build directory instead of individual bin folders
 ; Can be overridden via command line:
 ; makensis /DBUILD_CONFIG=Release InstallMaker.nsi
-; makensis /DTARGET_FRAMEWORK=net9.0-windows10.0.17763.0 InstallMaker.nsi
 ; ========================================
 ;
 ; Set default values if not provided via command line
@@ -29,24 +29,17 @@
   !define BUILD_CONFIG          "Debug"
 !endif
 
-!ifndef TARGET_FRAMEWORK
-  !define TARGET_FRAMEWORK      "net9.0-windows10.0.17763.0"
-!endif
-
 !define APP_NAME                "WorldMapWallpaper"
 !define FRIEND_NAME             "World Map Wallpaper"
-!define MAIN_APP_BUILD_PATH     ".\bin\${BUILD_CONFIG}\${TARGET_FRAMEWORK}"
-!define SHARED_LIB_BUILD_PATH   "..\Shared\bin\${BUILD_CONFIG}\${TARGET_FRAMEWORK}"
-!define SETTINGS_APP_BUILD_PATH "..\Settings\bin\${BUILD_CONFIG}\${TARGET_FRAMEWORK}"
+
+; Use the published build directory - this contains all necessary files
+!define PUBLISH_BUILD_PATH      ".\bin\publish-64"
 
 ;
 ; Define application file names
 ;
 !define MAIN_APP_EXE     "${APP_NAME}.exe"
-!define MAIN_APP_DLL     "${APP_NAME}.dll"
 !define SETTINGS_APP_EXE "${APP_NAME}.Settings.exe"
-!define SETTINGS_APP_DLL "${APP_NAME}.Settings.dll"
-!define SHARED_LIB_DLL   "${APP_NAME}.Shared.dll"
 
 Name "${FRIEND_NAME}"
 OutFile "Install.exe"
@@ -96,20 +89,12 @@ Section "Installer Section" SecInstaller
     LogSet on
 
     ;
-    ; Files to be installed - Main Application from build output
+    ; Install all files from the published build directory
+    ; This includes the main app, settings app, shared library, and all dependencies
     ;
-    File /a /r "${MAIN_APP_BUILD_PATH}\*.*"
+    LogText "Installing application files from published build..."
+    File /a /r "${PUBLISH_BUILD_PATH}\*.*"
     File "License.txt"
-    
-    ;
-    ; Install Settings Application
-    ;
-    LogText "Installing Settings application..."
-    File /oname=${SETTINGS_APP_EXE} "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_EXE}"
-    File /oname=${SETTINGS_APP_DLL} "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_DLL}"
-    File /oname=${SETTINGS_APP_EXE}.runtimeconfig.json "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_EXE}.runtimeconfig.json"
-    File /oname=${SETTINGS_APP_EXE}.deps.json "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_EXE}.deps.json"
-    File /oname=${SHARED_LIB_DLL} "${SETTINGS_APP_BUILD_PATH}\${SHARED_LIB_DLL}"
 
     ;
     ; Create the Event Source
@@ -145,11 +130,18 @@ Section "Installer Section" SecInstaller
     WriteUninstaller "$INSTDIR\Uninstall.exe"
 
     ;
-    ; Running the program
+    ; Running the program and then launch settings
     ;
-    LogText "Running the program..."
+    LogText "Running the program to generate initial wallpaper..."
     ExecWait '"$INSTDIR\${MAIN_APP_EXE}"'
     LogText "Program executed."
+    
+    ;
+    ; Launch settings interface for user configuration
+    ;
+    LogText "Launching settings interface..."
+    Exec '"$INSTDIR\${SETTINGS_APP_EXE}"'
+    LogText "Settings interface launched."
 
     LogText "Installation complete."
 SectionEnd
@@ -261,7 +253,7 @@ Function RegisterWallpaperProvider
     
     ; Register the settings command
     WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure" "" "Configure World Map Settings"
-    WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure\command" "" '"$INSTDIR\${MAIN_APP_EXE}" --settings'
+    WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure\command" "" '"$INSTDIR\${SETTINGS_APP_EXE}"'
     
     LogText "Wallpaper provider registration complete."
 FunctionEnd
