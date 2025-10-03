@@ -4,11 +4,12 @@ namespace WorldMapWallpaper.Settings;
 
 /// <summary>
 /// The main settings form for World Map Wallpaper.
-/// Provides a modern-looking interface for configuring wallpaper options.
+/// Provides a modern-looking interface for configuring wallpaper options with system theme support.
 /// </summary>
 public partial class SettingsForm : Form
 {
     private WallpaperMonitor? _wallpaperMonitor;
+    private ColorScheme _colorScheme = null!;
 
     private CheckBox _issCheckBox = null!;
     private CheckBox _timeZonesCheckBox = null!;
@@ -17,10 +18,15 @@ public partial class SettingsForm : Form
     private Button _previewButton = null!;
     private Button _resetButton = null!;
     private Button _closeButton = null!;
+    private Label _taskStatusLabel = null!;
 
     public SettingsForm()
     {
+        // Get current theme before initializing components
+        _colorScheme = ThemeManager.GetCurrentColorScheme();
+        
         InitializeComponent();
+        ApplyTheme();
         InitializeControls();
         LoadSettings();
         StartWallpaperMonitoring();
@@ -39,7 +45,13 @@ public partial class SettingsForm : Form
 
         // Set modern appearance
         this.Font = new Font("Segoe UI", 9F);
-        this.BackColor = SystemColors.Window;
+    }
+
+    private void ApplyTheme()
+    {
+        // Apply theme to the form
+        this.BackColor = _colorScheme.BackgroundColor;
+        this.ForeColor = _colorScheme.PrimaryTextColor;
     }
 
     private void InitializeControls()
@@ -54,7 +66,8 @@ public partial class SettingsForm : Form
             Font = new Font("Segoe UI", 16F, FontStyle.Bold),
             Location = new Point(padding, currentY),
             Size = new Size(this.ClientSize.Width - 2 * padding, 32),
-            ForeColor = Color.FromArgb(0, 120, 215) // Windows blue
+            ForeColor = _colorScheme.AccentColor,
+            BackColor = Color.Transparent
         };
         this.Controls.Add(headerLabel);
         currentY += 50;
@@ -65,7 +78,8 @@ public partial class SettingsForm : Form
             Font = new Font("Segoe UI", 9F),
             Location = new Point(padding, currentY),
             Size = new Size(this.ClientSize.Width - 2 * padding, 20),
-            ForeColor = SystemColors.GrayText
+            ForeColor = _colorScheme.SecondaryTextColor,
+            BackColor = Color.Transparent
         };
         this.Controls.Add(subtitleLabel);
         currentY += 40;
@@ -76,7 +90,9 @@ public partial class SettingsForm : Form
             Text = "Visual Elements",
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             Location = new Point(padding, currentY),
-            Size = new Size(this.ClientSize.Width - 2 * padding, 120)
+            Size = new Size(this.ClientSize.Width - 2 * padding, 120),
+            ForeColor = _colorScheme.PrimaryTextColor,
+            BackColor = _colorScheme.GroupBoxBackColor
         };
         this.Controls.Add(visualGroup);
 
@@ -86,7 +102,9 @@ public partial class SettingsForm : Form
             Location = new Point(15, 25),
             Size = new Size(visualGroup.Width - 30, 23),
             Checked = true,
-            Font = new Font("Segoe UI", 9F)
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = _colorScheme.PrimaryTextColor,
+            BackColor = Color.Transparent
         };
         _issCheckBox.CheckedChanged += OnSettingChanged;
         visualGroup.Controls.Add(_issCheckBox);
@@ -97,7 +115,9 @@ public partial class SettingsForm : Form
             Location = new Point(15, 50),
             Size = new Size(visualGroup.Width - 30, 23),
             Checked = true,
-            Font = new Font("Segoe UI", 9F)
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = _colorScheme.PrimaryTextColor,
+            BackColor = Color.Transparent
         };
         _timeZonesCheckBox.CheckedChanged += OnSettingChanged;
         visualGroup.Controls.Add(_timeZonesCheckBox);
@@ -108,7 +128,9 @@ public partial class SettingsForm : Form
             Location = new Point(15, 75),
             Size = new Size(visualGroup.Width - 30, 23),
             Checked = true,
-            Font = new Font("Segoe UI", 9F)
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = _colorScheme.PrimaryTextColor,
+            BackColor = Color.Transparent
         };
         _politicalMapCheckBox.CheckedChanged += OnSettingChanged;
         visualGroup.Controls.Add(_politicalMapCheckBox);
@@ -121,7 +143,9 @@ public partial class SettingsForm : Form
             Text = "Update Settings",
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             Location = new Point(padding, currentY),
-            Size = new Size(this.ClientSize.Width - 2 * padding, 100)
+            Size = new Size(this.ClientSize.Width - 2 * padding, 100),
+            ForeColor = _colorScheme.PrimaryTextColor,
+            BackColor = _colorScheme.GroupBoxBackColor
         };
         this.Controls.Add(updateGroup);
 
@@ -130,7 +154,9 @@ public partial class SettingsForm : Form
             Text = "Update Frequency:",
             Location = new Point(15, 30),
             Size = new Size(120, 23),
-            Font = new Font("Segoe UI", 9F)
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = _colorScheme.PrimaryTextColor,
+            BackColor = Color.Transparent
         };
         updateGroup.Controls.Add(intervalLabel);
 
@@ -139,7 +165,9 @@ public partial class SettingsForm : Form
             Location = new Point(140, 27),
             Size = new Size(updateGroup.Width - 155, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = new Font("Segoe UI", 9F)
+            Font = new Font("Segoe UI", 9F),
+            BackColor = _colorScheme.SurfaceColor,
+            ForeColor = _colorScheme.PrimaryTextColor
         };
 
         // Populate combo box
@@ -156,20 +184,22 @@ public partial class SettingsForm : Form
             Location = new Point(15, 60),
             Size = new Size(updateGroup.Width - 30, 15),
             Font = new Font("Segoe UI", 8F),
-            ForeColor = SystemColors.GrayText
+            ForeColor = _colorScheme.SecondaryTextColor,
+            BackColor = Color.Transparent
         };
         updateGroup.Controls.Add(infoLabel);
 
         // Add task status label
-        var taskStatusLabel = new Label
+        _taskStatusLabel = new Label
         {
             Text = GetTaskStatusText(),
             Location = new Point(15, 75),
             Size = new Size(updateGroup.Width - 30, 15),
             Font = new Font("Segoe UI", 8F),
-            ForeColor = TaskManager.IsTaskEnabled() ? Color.Green : Color.Red
+            ForeColor = TaskManager.IsTaskEnabled() ? _colorScheme.SuccessColor : _colorScheme.ErrorColor,
+            BackColor = Color.Transparent
         };
-        updateGroup.Controls.Add(taskStatusLabel);
+        updateGroup.Controls.Add(_taskStatusLabel);
 
         currentY += 120;
 
@@ -180,7 +210,7 @@ public partial class SettingsForm : Form
             Location = new Point(padding, currentY),
             Size = new Size(this.ClientSize.Width - 2 * padding, 35),
             Font = new Font("Segoe UI", 9F),
-            BackColor = Color.FromArgb(0, 120, 215),
+            BackColor = _colorScheme.AccentColor,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand
@@ -197,8 +227,13 @@ public partial class SettingsForm : Form
             Location = new Point(padding, currentY),
             Size = new Size(150, 30),
             Font = new Font("Segoe UI", 9F),
+            BackColor = _colorScheme.ButtonBackColor,
+            ForeColor = _colorScheme.PrimaryTextColor,
+            FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand
         };
+        _resetButton.FlatAppearance.BorderSize = 1;
+        _resetButton.FlatAppearance.BorderColor = _colorScheme.BorderColor;
         _resetButton.Click += OnResetClick;
         this.Controls.Add(_resetButton);
 
@@ -208,8 +243,13 @@ public partial class SettingsForm : Form
             Location = new Point(this.ClientSize.Width - padding - 80, currentY),
             Size = new Size(80, 30),
             Font = new Font("Segoe UI", 9F),
+            BackColor = _colorScheme.ButtonBackColor,
+            ForeColor = _colorScheme.PrimaryTextColor,
+            FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand
         };
+        _closeButton.FlatAppearance.BorderSize = 1;
+        _closeButton.FlatAppearance.BorderColor = _colorScheme.BorderColor;
         _closeButton.Click += (s, e) => this.Close();
         this.Controls.Add(_closeButton);
     }

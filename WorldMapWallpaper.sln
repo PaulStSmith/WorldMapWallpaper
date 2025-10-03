@@ -10,8 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
+		build.bat = build.bat
 		CLAUDE.md = CLAUDE.md
 		DateVersioning.targets = DateVersioning.targets
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapWallpaper.Settings", "Settings\WorldMapWallpaper.Settings.csproj", "{0DB1B0DF-DE56-4F27-AB3D-2E2DE624867F}"

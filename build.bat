@@ -51,8 +51,8 @@ echo.
 
 REM Clean previous build
 echo [1/5] Cleaning previous build...
-if exist "bin\publish-64\" (
-    rmdir /s /q "bin\publish-64\"
+if exist "ImagePainter\bin\publish-64\" (
+    rmdir /s /q "ImagePainter\bin\publish-64\"
     echo Previous build cleaned.
 ) else (
     echo No previous build found.
@@ -66,12 +66,7 @@ if !ERRORLEVEL! neq 0 (
     exit /b 1
 )
 
-if /i "%cfg%"=="Debug" (
-    echo Debug build. No release will be created.
-    exit /b 0
-)
-
-REM Publish the application
+REM Publish the application for both Debug and Release
 echo [3/5] Publishing application...
 call :PublishApplication
 if !ERRORLEVEL! neq 0 (
@@ -80,6 +75,11 @@ if !ERRORLEVEL! neq 0 (
 )
 echo Publish completed successfully.
 echo.
+
+if /i "%cfg%"=="Debug" (
+    echo Debug build completed. No GitHub release will be created.
+    exit /b 0
+)
 
 REM Check if NSIS is available
 echo [4/5] Checking for NSIS installer...
@@ -97,7 +97,13 @@ echo.
 
 REM Create installer
 echo [5/5] Creating installer...
-makensis InstallMaker.nsi
+if /i "%cfg%"=="Release" (
+    echo Creating Release installer...
+    makensis /DBUILD_CONFIG=Release ImagePainter\InstallMaker.nsi
+) else (
+    echo Creating Debug installer...
+    makensis /DBUILD_CONFIG=Debug ImagePainter\InstallMaker.nsi
+)
 if !ERRORLEVEL! neq 0 (
     echo ERROR: Installer creation failed!
     exit /b 1
@@ -108,7 +114,7 @@ echo ===============================================
 echo              BUILD COMPLETED
 echo ===============================================
 echo.
-echo Published files: %PROJECT_DIR%bin\publish-64\
+echo Published files: %PROJECT_DIR%ImagePainter\bin\publish-64\
 if not exist "Install.exe" (
     echo WARNING: Install.exe not found.
     echo Cannot create release without installer!
@@ -131,12 +137,23 @@ if !ERRORLEVEL! neq 0 (
 
 echo Creating GitHub release...
             
-REM Get version from AssemblyInfo.cs
+REM Get version from AssemblyInfo.cs - check both locations
 set "VERSION="
-for /f "tokens=2 delims=(" %%a in ('findstr "AssemblyVersion" Properties\AssemblyInfo.cs') do (
-    for /f "tokens=1 delims=)" %%b in ("%%a") do (
-        set VERSION=%%b
-        set VERSION=!VERSION:"=!
+if exist "ImagePainter\Properties\AssemblyInfo.cs" (
+    echo Reading version from ImagePainter\Properties\AssemblyInfo.cs...
+    for /f "tokens=2 delims=(" %%a in ('findstr "AssemblyVersion" ImagePainter\Properties\AssemblyInfo.cs') do (
+        for /f "tokens=1 delims=)" %%b in ("%%a") do (
+            set VERSION=%%b
+            set VERSION=!VERSION:"=!
+        )
+    )
+) else if exist "Properties\AssemblyInfo.cs" (
+    echo Reading version from Properties\AssemblyInfo.cs...
+    for /f "tokens=2 delims=(" %%a in ('findstr "AssemblyVersion" Properties\AssemblyInfo.cs') do (
+        for /f "tokens=1 delims=)" %%b in ("%%a") do (
+            set VERSION=%%b
+            set VERSION=!VERSION:"=!
+        )
     )
 )
             
@@ -265,6 +282,20 @@ if "%PROJECT_FILE%"=="" (
 
 echo Searching for MSBuild...
 
+:: First, try to set up VS Developer environment if not already set
+if not defined VSINSTALLDIR (
+    echo Setting up Visual Studio Developer environment...
+    for %%e in (Enterprise Professional Community) do (
+        if exist "C:\Program Files\Microsoft Visual Studio\2022\%%e\Common7\Tools\VsDevCmd.bat" (
+            echo Found VS2022 %%e - setting up environment...
+            call "C:\Program Files\Microsoft Visual Studio\2022\%%e\Common7\Tools\VsDevCmd.bat" -no_logo
+            goto :env_setup_done
+        )
+    )
+    echo Warning: Could not find VS Developer Command Prompt setup
+)
+:env_setup_done
+
 :: Try to find Visual Studio 2022 installation
 set VS2022_PATH=
 for %%e in (Enterprise Professional Community) do (
@@ -380,6 +411,16 @@ exit /b 1
 :publish_found_msbuild
 echo Using MSBuild for publish: !MSBUILD_PATH!
 
-REM Use MSBuild to publish with the profile
-"!MSBUILD_PATH!" WorldMapWallpaper.csproj /p:PublishProfile=Publish_x64 /p:Configuration=!cfg! /t:Publish /v:m
+REM Use MSBuild to publish with the profile - find the main project
+cd /d "%PROJECT_DIR%"
+if exist "ImagePainter\WorldMapWallpaper.csproj" (
+    echo Publishing ImagePainter\WorldMapWallpaper.csproj...
+    "!MSBUILD_PATH!" ImagePainter\WorldMapWallpaper.csproj /p:PublishProfile=Publish_x64 /p:Configuration=!cfg! /t:Publish /v:m
+) else if exist "WorldMapWallpaper.csproj" (
+    echo Publishing WorldMapWallpaper.csproj...
+    "!MSBUILD_PATH!" WorldMapWallpaper.csproj /p:PublishProfile=Publish_x64 /p:Configuration=!cfg! /t:Publish /v:m
+) else (
+    echo ERROR: Could not find WorldMapWallpaper.csproj
+    exit /b 1
+)
 exit /b %ERRORLEVEL%

@@ -7,15 +7,48 @@
 ;
 ; Define the application name and event log source
 ;
-!define EVENT_SOURCE "World Map Wallpaper Source"
 !define EVENT_LOG "Application"
+!define EVENT_SOURCE "World Map Wallpaper Source"
 
 ;
 ; Define the Registry path for the event log source
 ;
 !define REG_PATH "SYSTEM\CurrentControlSet\Services\EventLog\${EVENT_LOG}\${EVENT_SOURCE}"
 
-Name "World Map Wallpaper"
+;
+; ========================================
+; Build Configuration - CHANGE HERE FOR DIFFERENT BUILDS
+; ========================================
+; Can be overridden via command line:
+; makensis /DBUILD_CONFIG=Release InstallMaker.nsi
+; makensis /DTARGET_FRAMEWORK=net9.0-windows10.0.17763.0 InstallMaker.nsi
+; ========================================
+;
+; Set default values if not provided via command line
+!ifndef BUILD_CONFIG
+  !define BUILD_CONFIG          "Debug"
+!endif
+
+!ifndef TARGET_FRAMEWORK
+  !define TARGET_FRAMEWORK      "net9.0-windows10.0.17763.0"
+!endif
+
+!define APP_NAME                "WorldMapWallpaper"
+!define FRIEND_NAME             "World Map Wallpaper"
+!define MAIN_APP_BUILD_PATH     ".\bin\${BUILD_CONFIG}\${TARGET_FRAMEWORK}"
+!define SHARED_LIB_BUILD_PATH   "..\Shared\bin\${BUILD_CONFIG}\${TARGET_FRAMEWORK}"
+!define SETTINGS_APP_BUILD_PATH "..\Settings\bin\${BUILD_CONFIG}\${TARGET_FRAMEWORK}"
+
+;
+; Define application file names
+;
+!define MAIN_APP_EXE     "${APP_NAME}.exe"
+!define MAIN_APP_DLL     "${APP_NAME}.dll"
+!define SETTINGS_APP_EXE "${APP_NAME}.Settings.exe"
+!define SETTINGS_APP_DLL "${APP_NAME}.Settings.dll"
+!define SHARED_LIB_DLL   "${APP_NAME}.Shared.dll"
+
+Name "${FRIEND_NAME}"
 OutFile "Install.exe"
 
 ;
@@ -54,7 +87,7 @@ Function .onInit
     ;
     ; Set the installation directory
     ;
-    StrCpy $INSTDIR "C:\Program Files\WorldMapWallpaper"
+    StrCpy $INSTDIR "C:\Program Files\${APP_NAME}"
     LogText "Installation path: '$INSTDIR'"
     SetOutPath "$INSTDIR"
 FunctionEnd
@@ -63,10 +96,20 @@ Section "Installer Section" SecInstaller
     LogSet on
 
     ;
-    ; Files to be installed
+    ; Files to be installed - Main Application from build output
     ;
-    File /a /r ".\bin\publish-64\*.*"
+    File /a /r "${MAIN_APP_BUILD_PATH}\*.*"
     File "License.txt"
+    
+    ;
+    ; Install Settings Application
+    ;
+    LogText "Installing Settings application..."
+    File /oname=${SETTINGS_APP_EXE} "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_EXE}"
+    File /oname=${SETTINGS_APP_DLL} "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_DLL}"
+    File /oname=${SETTINGS_APP_EXE}.runtimeconfig.json "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_EXE}.runtimeconfig.json"
+    File /oname=${SETTINGS_APP_EXE}.deps.json "${SETTINGS_APP_BUILD_PATH}\${SETTINGS_APP_EXE}.deps.json"
+    File /oname=${SHARED_LIB_DLL} "${SETTINGS_APP_BUILD_PATH}\${SHARED_LIB_DLL}"
 
     ;
     ; Create the Event Source
@@ -77,6 +120,11 @@ Section "Installer Section" SecInstaller
     ; Create the scheduled task
     ;
     Call CreateSchedulerTask
+    
+    ;
+    ; Register wallpaper provider for Windows Personalization
+    ;
+    Call RegisterWallpaperProvider
 
     ;
     ; Create a log directory
@@ -100,7 +148,7 @@ Section "Installer Section" SecInstaller
     ; Running the program
     ;
     LogText "Running the program..."
-    ExecWait '"$INSTDIR\WorldMapWallpaper.exe"'
+    ExecWait '"$INSTDIR\${MAIN_APP_EXE}"'
     LogText "Program executed."
 
     LogText "Installation complete."
@@ -110,7 +158,7 @@ Function CreateEventSource
     LogText "Creating event source..."
 
     ; Create the registry key
-    WriteRegStr HKLM "${REG_PATH}" "EventMessageFile" "$INSTDIR\WorldMapWallpaper.exe"
+    WriteRegStr HKLM "${REG_PATH}" "EventMessageFile" "$INSTDIR\${MAIN_APP_EXE}"
     WriteRegDWORD HKLM "${REG_PATH}" "TypesSupported" 7
 
     LogText "Event source created."
@@ -123,7 +171,7 @@ Function CreateSchedulerTask
     ;
     ; Create XML file for the scheduler task
     ;
-    StrCpy $0 "$INSTDIR\WorldMapWallpaperTask.xml"
+    StrCpy $0 "$INSTDIR\${APP_NAME}Task.xml"
     FileOpen $1 $0 w
 
 	ClearErrors
@@ -184,7 +232,7 @@ Function CreateSchedulerTask
     FileWrite $1 '  </Settings>$\r$\n'
     FileWrite $1 '  <Actions Context="Author">$\r$\n'
     FileWrite $1 '    <Exec>$\r$\n'
-    FileWrite $1 '      <Command>"$INSTDIR\WorldMapWallpaper.exe"</Command>$\r$\n'
+    FileWrite $1 '      <Command>"$INSTDIR\${MAIN_APP_EXE}"</Command>$\r$\n'
     FileWrite $1 '    </Exec>$\r$\n'
     FileWrite $1 '  </Actions>$\r$\n'
     FileWrite $1 '</Task>$\r$\n'
@@ -192,12 +240,30 @@ Function CreateSchedulerTask
     LogText "XML file created: $0"
 
     LogText "Creating scheduler task to run the program..."
-    StrCpy $0 '"schtasks" /create /tn "World Map Wallpaper" /xml "$INSTDIR\WorldMapWallpaperTask.xml" /f'
+    StrCpy $0 '"schtasks" /create /tn "${FRIEND_NAME}" /xml "$INSTDIR\${APP_NAME}Task.xml" /f'
     LogText "Command: $0"
     nsExec::Exec "$0"
     pop $0
     LogText "Exit Code: $0"
 
+FunctionEnd
+
+Function RegisterWallpaperProvider
+    LogText "Registering wallpaper provider for Windows Personalization..."
+    
+    ; Register the application for wallpaper settings integration
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${MAIN_APP_EXE}" "" "$INSTDIR\${MAIN_APP_EXE}"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${MAIN_APP_EXE}" "Path" "$INSTDIR"
+    
+    ; Add to Windows Settings integration (optional - may require additional permissions)
+    WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background" "" "World Map Dynamic Wallpaper"
+    WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background" "FriendlyName" "World Map with Day/Night Cycle"
+    
+    ; Register the settings command
+    WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure" "" "Configure World Map Settings"
+    WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure\command" "" '"$INSTDIR\${MAIN_APP_EXE}" --settings'
+    
+    LogText "Wallpaper provider registration complete."
 FunctionEnd
 
 ;  _   _      _         _        _ _         
@@ -208,7 +274,7 @@ FunctionEnd
 Section "Uninstall" SecUninstaller
     LogSet on
 
-    LogText "Uninstalling WorldMapWallpaper..."
+    LogText "Uninstalling ${APP_NAME}..."
     LogText "Installation directory: $INSTDIR"
 
     ;
@@ -221,7 +287,7 @@ Section "Uninstall" SecUninstaller
     ; Remove the scheduler tasks
     ;
     LogText "Removing scheduler task to run the program every hour on the hour..."
-    StrCpy $0 '"schtasks" /delete /tn "World Map Wallpaper" /f'
+    StrCpy $0 '"schtasks" /delete /tn "${FRIEND_NAME}" /f'
     LogText "Command: $0"
     nsExec::Exec "$0"
     pop $0
@@ -232,6 +298,13 @@ Section "Uninstall" SecUninstaller
     ;
     LogText "Removing event source..."
     DeleteRegKey HKLM "${REG_PATH}"
+    
+    ;
+    ; Remove wallpaper provider registry entries
+    ;
+    LogText "Removing wallpaper provider registry entries..."
+    DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${MAIN_APP_EXE}"
+    DeleteRegKey HKLM "SOFTWARE\Classes\${APP_NAME}.Background"
 
 SectionEnd
 

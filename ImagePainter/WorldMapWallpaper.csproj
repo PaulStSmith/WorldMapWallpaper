@@ -24,7 +24,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Properties\AssemblyInfo.cs" />
+    <PackageReference Include="Costura.Fody" Version="6.0.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,10 +32,6 @@
     <None Remove=".gitattributes" />
     <None Remove="CLAUDE.md" />
     <None Remove="DateVersioning.targets" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
 
   <ItemGroup>

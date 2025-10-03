@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WorldMapWallpaper": {
+      "commandName": "Project",
+      "commandLineArgs": "--settings"
+    }
+  }
+}

@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
 using WorldMapWallpaper.Properties;
+using WorldMapWallpaper.Shared;
 
 namespace WorldMapWallpaper
 {
@@ -278,12 +279,43 @@ namespace WorldMapWallpaper
         /// Generates a dynamic wallpaper showing the current day/night terminator line
         /// and world time zone clocks, then sets it as the desktop wallpaper.
         /// </summary>
-        static void Main()
+        static void Main(string[] args)
         {
             log.Info("Starting the WorldMapWallpaper application.");
 
+            // Check for command line arguments
+            if (args.Length > 0 && args[0] == "--settings")
+            {
+                log.Info("Launching settings application.");
+                try
+                {
+                    var settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WorldMapWallpaper.Settings.exe");
+                    if (File.Exists(settingsPath))
+                    {
+                        var startInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = settingsPath,
+                            UseShellExecute = true
+                        };
+                        System.Diagnostics.Process.Start(startInfo);
+                    }
+                    else
+                    {
+                        log.Info($"Settings application not found at: {settingsPath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Info($"Failed to launch settings: {ex.Message}");
+                }
+                return;
+            }
+
             try
             {
+                // Log current settings
+                log.Info($"Current settings - ISS: {Settings.ShowISS}, TimeZones: {Settings.ShowTimeZones}, PoliticalMap: {Settings.ShowPoliticalMap}, UpdateInterval: {Settings.UpdateInterval}");
+
                 // Load resources
                 var map = Resources.WorldPoliticalMap;
                 var day = Resources.EarthDay;
@@ -315,17 +347,42 @@ namespace WorldMapWallpaper
                     log.Debug("Drawing the day image over the night image.");
                     g.DrawImage(dayImageCopy, 0, 0);
 
-                    // Draw political map overlay
-                    log.Debug("Drawing the political map.");
-                    g.DrawImage(map, 0, 0, day.Width, day.Height);
+                    // Draw political map overlay (if enabled)
+                    if (Settings.ShowPoliticalMap)
+                    {
+                        log.Debug("Drawing the political map.");
+                        g.DrawImage(map, 0, 0, day.Width, day.Height);
+                    }
+                    else
+                    {
+                        log.Debug("Political map disabled by user settings.");
+                    }
 
-                    // Draw timezone clocks
-                    DrawTimezonClocks(g, clock, currentTime, day.Width, day.Height);
+                    // Draw timezone clocks (if enabled)
+                    if (Settings.ShowTimeZones)
+                    {
+                        log.Debug("Drawing timezone clocks.");
+                        DrawTimezonClocks(g, clock, currentTime, day.Width, day.Height);
+                    }
+                    else
+                    {
+                        log.Debug("Timezone clocks disabled by user settings.");
+                    }
                 }
 
-                // Add ISS tracking
-                var issTracker = new ISSTracker(log, timeOffset, declination);
-                var finalImage = issTracker.PlotISS(night);
+                // Add ISS tracking (if enabled)
+                Bitmap finalImage;
+                if (Settings.ShowISS)
+                {
+                    log.Debug("Adding ISS tracking to wallpaper.");
+                    var issTracker = new ISSTracker(log, timeOffset, declination);
+                    finalImage = issTracker.PlotISS(night);
+                }
+                else
+                {
+                    log.Debug("ISS tracking disabled by user settings.");
+                    finalImage = night;
+                }
 
                 // Save and set wallpaper
                 log.Info($"Saving the new wallpaper to \"{fileName}\".");
@@ -366,8 +423,8 @@ namespace WorldMapWallpaper
         /// <exception cref="ArgumentException">Thrown when the image and alpha mask have different dimensions.</exception>
         public static void SetAlphaMask(Bitmap image, Bitmap alphaMask)
         {
-            if (image == null) throw new ArgumentNullException(nameof(image));
-            if (alphaMask == null) throw new ArgumentNullException(nameof(alphaMask));
+            ArgumentNullException.ThrowIfNull(image, nameof(image));
+            ArgumentNullException.ThrowIfNull(alphaMask, nameof(alphaMask));
             if (image.Size != alphaMask.Size)
                 throw new ArgumentException("The image and alpha mask must be the same size.");
 

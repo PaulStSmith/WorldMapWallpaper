@@ -362,9 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# AI files
-CLAUDE.md
-
 # Installer output folder
 /Install.exe
 .claude/
