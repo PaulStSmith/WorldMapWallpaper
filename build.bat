@@ -115,12 +115,12 @@ echo              BUILD COMPLETED
 echo ===============================================
 echo.
 echo Published files: %PROJECT_DIR%ImagePainter\bin\publish-64\
-if not exist "%PROJECT_DIR%Install.exe" (
+if not exist "%PROJECT_DIR%ImagePainter\Install.exe" (
     echo WARNING: Install.exe not found.
     echo Cannot create release without installer!
     exit /b 1
 )
-echo Installer created: %PROJECT_DIR%Install.exe
+echo Installer created: %PROJECT_DIR%ImagePainter\Install.exe
 echo [RELEASE] Triggering GitHub release...
 echo.
         
