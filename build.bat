@@ -192,7 +192,7 @@ if !ERRORLEVEL! equ 0 (
 )
             
 :create_release
-gh release create "v!FINAL_VERSION!" Install.exe --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
+gh release create "v!FINAL_VERSION!" "%PROJECT_DIR%ImagePainter\Install.exe" --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
             
 if !ERRORLEVEL! neq 0 (
     echo ERROR: Failed to create GitHub release.
