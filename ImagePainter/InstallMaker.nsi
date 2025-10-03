@@ -40,6 +40,9 @@
 ;
 !define MAIN_APP_EXE     "${APP_NAME}.exe"
 !define SETTINGS_APP_EXE "${APP_NAME}.Settings.exe"
+!define MONITOR_APP_EXE  "WorldMapWallPaper.Monitor.exe"
+!define SERVICE_NAME     "WorldMapWallpaperMonitor"
+!define SERVICE_DISPLAY  "World Map Wallpaper Monitor"
 
 Name "${FRIEND_NAME}"
 OutFile "Install.exe"
@@ -105,6 +108,11 @@ Section "Installer Section" SecInstaller
     ; Create the scheduled task
     ;
     Call CreateSchedulerTask
+    
+    ;
+    ; Install and start the monitor service
+    ;
+    Call InstallMonitorService
     
     ;
     ; Register wallpaper provider for Windows Personalization
@@ -241,21 +249,94 @@ Function CreateSchedulerTask
 FunctionEnd
 
 Function RegisterWallpaperProvider
-    LogText "Registering wallpaper provider for Windows Personalization..."
+    LogText "Registering comprehensive wallpaper provider for Windows Personalization..."
     
-    ; Register the application for wallpaper settings integration
+    ; Register as proper Windows Background Provider
+    LogText "Registering background provider..."
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "" "World Map Wallpaper"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "DisplayName" "World Map Wallpaper"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "Description" "Dynamic wallpaper with real-time day/night cycle, ISS tracking, and timezone clocks"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "ApplicationPath" "$INSTDIR\${MAIN_APP_EXE}"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "SettingsPath" "$INSTDIR\${SETTINGS_APP_EXE}"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "Category" "Dynamic"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "SupportedFormats" "jpg,jpeg,png,bmp"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "Version" "1.0"
+    WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "SupportsSlideshow" 0
+    WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "SupportsRealTime" 1
+    WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "SupportsScheduling" 1
+    WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}" "SupportsMultiMonitor" 1
+    
+    ; Register for personalization themes integration
+    LogText "Registering personalization theme integration..."
+    WriteRegStr HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\${APP_NAME}" "DisplayName" "World Map Wallpaper"
+    WriteRegStr HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\${APP_NAME}" "Description" "Dynamic wallpaper with real-time day/night cycle, ISS tracking, and timezone clocks"
+    WriteRegStr HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\${APP_NAME}" "ApplicationPath" "$INSTDIR\${MAIN_APP_EXE}"
+    WriteRegStr HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\${APP_NAME}" "ThemeId" "${APP_NAME}"
+    WriteRegDWORD HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\${APP_NAME}" "IsBackgroundProvider" 1
+    
+    ; Register application paths for Windows
+    LogText "Registering application paths..."
     WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${MAIN_APP_EXE}" "" "$INSTDIR\${MAIN_APP_EXE}"
     WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${MAIN_APP_EXE}" "Path" "$INSTDIR"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${SETTINGS_APP_EXE}" "" "$INSTDIR\${SETTINGS_APP_EXE}"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${SETTINGS_APP_EXE}" "Path" "$INSTDIR"
     
-    ; Add to Windows Settings integration (optional - may require additional permissions)
+    ; Enable background access for the application
+    LogText "Enabling background access permissions..."
+    WriteRegDWORD HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications\${APP_NAME}" "Disabled" 0
+    WriteRegDWORD HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications\${APP_NAME}" "DisabledByUser" 0
+    
+    ; Legacy compatibility registration
     WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background" "" "World Map Dynamic Wallpaper"
     WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background" "FriendlyName" "World Map with Day/Night Cycle"
-    
-    ; Register the settings command
     WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure" "" "Configure World Map Settings"
     WriteRegStr HKLM "SOFTWARE\Classes\${APP_NAME}.Background\shell\configure\command" "" '"$INSTDIR\${SETTINGS_APP_EXE}"'
     
-    LogText "Wallpaper provider registration complete."
+    ; Add desktop right-click context menu for easy access to settings
+    LogText "Adding desktop context menu integration..."
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapSettings" "" "World Map Wallpaper Settings"
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapSettings" "Icon" "$INSTDIR\${SETTINGS_APP_EXE},0"
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapSettings" "Position" "Middle"
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapSettings\command" "" '"$INSTDIR\${SETTINGS_APP_EXE}"'
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapSettings" "SeparatorBefore" ""
+    
+    ; Also add "Update Wallpaper Now" option for quick updates
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapUpdate" "" "Update World Map Wallpaper Now"
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapUpdate" "Icon" "$INSTDIR\${MAIN_APP_EXE},0"
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapUpdate" "Position" "Middle"
+    WriteRegStr HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapUpdate\command" "" '"$INSTDIR\${MAIN_APP_EXE}"'
+    
+    ; Add integration with Windows Personalization settings
+    LogText "Adding Windows Personalization settings integration..."
+    WriteRegStr HKLM "SOFTWARE\Classes\ms-settings" "world-map-wallpaper" "ms-settings:personalization-background"
+    WriteRegStr HKLM "SOFTWARE\Classes\Applications\${SETTINGS_APP_EXE}\shell\open" "FriendlyAppName" "World Map Wallpaper Settings"
+    
+    LogText "Comprehensive wallpaper provider registration complete."
+FunctionEnd
+
+Function InstallMonitorService
+    LogText "Installing and starting monitor service..."
+    
+    ; Install the service using the Monitor exe
+    LogText "Installing service ${SERVICE_NAME}..."
+    nsExec::ExecToLog '"$INSTDIR\${MONITOR_APP_EXE}" install'
+    Pop $0
+    LogText "Service install exit code: $0"
+    
+    ; Start the service
+    LogText "Starting service ${SERVICE_NAME}..."
+    nsExec::ExecToLog '"$INSTDIR\${MONITOR_APP_EXE}" start'
+    Pop $0
+    LogText "Service start exit code: $0"
+    
+    ; Verify service is running
+    Sleep 2000  ; Wait 2 seconds for service to start
+    LogText "Verifying service status..."
+    nsExec::ExecToLog 'sc query "${SERVICE_NAME}"'
+    Pop $0
+    LogText "Service query exit code: $0"
+    
+    LogText "Monitor service installation completed."
 FunctionEnd
 
 ;  _   _      _         _        _ _         
@@ -268,6 +349,11 @@ Section "Uninstall" SecUninstaller
 
     LogText "Uninstalling ${APP_NAME}..."
     LogText "Installation directory: $INSTDIR"
+
+    ;
+    ; Stop and uninstall the monitor service
+    ;
+    Call UninstallMonitorService
 
     ;
     ; Remove the installation directory
@@ -292,13 +378,53 @@ Section "Uninstall" SecUninstaller
     DeleteRegKey HKLM "${REG_PATH}"
     
     ;
-    ; Remove wallpaper provider registry entries
+    ; Remove comprehensive wallpaper provider registry entries
     ;
     LogText "Removing wallpaper provider registry entries..."
+    DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\BackgroundProviders\${APP_NAME}"
+    DeleteRegKey HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\${APP_NAME}"
     DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${MAIN_APP_EXE}"
+    DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\${SETTINGS_APP_EXE}"
+    DeleteRegKey HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications\${APP_NAME}"
     DeleteRegKey HKLM "SOFTWARE\Classes\${APP_NAME}.Background"
+    DeleteRegValue HKLM "SOFTWARE\Classes\ms-settings" "world-map-wallpaper"
+    DeleteRegKey HKLM "SOFTWARE\Classes\Applications\${SETTINGS_APP_EXE}"
+    
+    ;
+    ; Remove desktop context menu entries
+    ;
+    LogText "Removing desktop context menu entries..."
+    DeleteRegKey HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapSettings"
+    DeleteRegKey HKLM "SOFTWARE\Classes\DesktopBackground\Shell\WorldMapUpdate"
 
 SectionEnd
+
+Function UninstallMonitorService
+    LogText "Stopping and uninstalling monitor service..."
+    
+    ; Stop the service first
+    LogText "Stopping service ${SERVICE_NAME}..."
+    nsExec::ExecToLog '"$INSTDIR\${MONITOR_APP_EXE}" stop'
+    Pop $0
+    LogText "Service stop exit code: $0"
+    
+    ; Wait a moment for service to stop
+    Sleep 2000
+    
+    ; Uninstall the service
+    LogText "Uninstalling service ${SERVICE_NAME}..."
+    nsExec::ExecToLog '"$INSTDIR\${MONITOR_APP_EXE}" uninstall'
+    Pop $0
+    LogText "Service uninstall exit code: $0"
+    
+    ; Verify service is removed
+    LogText "Verifying service removal..."
+    nsExec::ExecToLog 'sc query "${SERVICE_NAME}"'
+    Pop $0
+    LogText "Service query exit code (should be error): $0"
+    
+    LogText "Monitor service uninstallation completed."
+FunctionEnd
 
 ;  _                ___             _   _             
 ; | |   ___  __ _  | __|  _ _ _  __| |_(_)___ _ _  ___

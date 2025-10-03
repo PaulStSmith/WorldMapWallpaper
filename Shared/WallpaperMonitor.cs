@@ -81,6 +81,12 @@ public class WallpaperMonitor : IDisposable
     {
         try
         {
+            // Try COM interface first (more reliable on newer Windows)
+            var comPath = PersonalizationProvider.GetCurrentWallpaperViaCOM();
+            if (!string.IsNullOrEmpty(comPath))
+                return comPath;
+
+            // Fallback to SystemParametersInfo
             var sbWPFN = new StringBuilder(256);
             SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
             return sbWPFN.ToString();

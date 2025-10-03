@@ -237,6 +237,22 @@ public partial class SettingsForm : Form
         _resetButton.Click += OnResetClick;
         this.Controls.Add(_resetButton);
 
+        var personalizationButton = new Button
+        {
+            Text = "Windows Settings",
+            Location = new Point(padding + 160, currentY),
+            Size = new Size(140, 30),
+            Font = new Font("Segoe UI", 9F),
+            BackColor = _colorScheme.ButtonBackColor,
+            ForeColor = _colorScheme.PrimaryTextColor,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand
+        };
+        personalizationButton.FlatAppearance.BorderSize = 1;
+        personalizationButton.FlatAppearance.BorderColor = _colorScheme.BorderColor;
+        personalizationButton.Click += OnPersonalizationClick;
+        this.Controls.Add(personalizationButton);
+
         _closeButton = new Button
         {
             Text = "Close",
@@ -334,6 +350,31 @@ public partial class SettingsForm : Form
         {
             Shared.Settings.ResetToDefaults();
             LoadSettings();
+        }
+    }
+
+    private void OnPersonalizationClick(object? sender, EventArgs e)
+    {
+        try
+        {
+            // Open Windows Personalization settings
+            var success = PersonalizationProvider.OpenPersonalizationSettings();
+            if (!success)
+            {
+                MessageBox.Show(
+                    "Unable to open Windows Personalization settings. You can access it manually through Settings > Personalization > Background.",
+                    "Information",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Error opening Windows Settings: {ex.Message}",
+                "Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
         }
     }
 
