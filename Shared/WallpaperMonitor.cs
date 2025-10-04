@@ -74,21 +74,15 @@ public class WallpaperMonitor : IDisposable
     }
 
     /// <summary>
-    /// Gets the current wallpaper path from the Windows registry.
+    /// Gets the current wallpaper path from the Windows API.
     /// </summary>
     /// <returns>The current wallpaper file path, or null if it can't be determined.</returns>
     public static string? GetCurrentWallpaperPath()
     {
         try
         {
-            // Try COM interface first (more reliable on newer Windows)
-            var comPath = PersonalizationProvider.GetCurrentWallpaperViaCOM();
-            if (!string.IsNullOrEmpty(comPath))
-                return comPath;
-
-            // Fallback to SystemParametersInfo
             var sbWPFN = new StringBuilder(256);
-            SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
+            NativeMethods.SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
             return sbWPFN.ToString();
         }
         catch
@@ -147,27 +141,4 @@ public class WallpaperMonitor : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// Sets a string parameter in the system parameters.
-    /// </summary>
-    /// <param name="uiAction">The system parameter to set.</param>
-    /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being set.</param>
-    /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being set.</param>
-    /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
-    /// <returns>True if the function succeeds; otherwise, false.</returns>
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, String pvParam, SPIF fWinIni);
-
-    /// <summary>
-    /// Retrieves a string parameter from the system parameters.
-    /// </summary>
-    /// <param name="uiAction">The system parameter to retrieve.</param>
-    /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
-    /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
-    /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
-    /// <returns>True if the function succeeds; otherwise, false.</returns>
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    static extern bool SystemParametersInfo(SPI uiAction, uint uiParam, StringBuilder pvParam, SPIF fWinIni);
 }

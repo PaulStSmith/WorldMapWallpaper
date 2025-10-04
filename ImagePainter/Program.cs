@@ -14,29 +14,6 @@ namespace WorldMapWallpaper
     /// </summary>
     internal class Program
     {
-        /// <summary>
-        /// Sets a string parameter in the system parameters.
-        /// </summary>
-        /// <param name="uiAction">The system parameter to set.</param>
-        /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being set.</param>
-        /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being set.</param>
-        /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
-        /// <returns>True if the function succeeds; otherwise, false.</returns>
-        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool SystemParametersInfo(Shared.SPI uiAction, uint uiParam, String pvParam, Shared.SPIF fWinIni);
-
-        /// <summary>
-        /// Retrieves a string parameter from the system parameters.
-        /// </summary>
-        /// <param name="uiAction">The system parameter to retrieve.</param>
-        /// <param name="uiParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
-        /// <param name="pvParam">A parameter whose usage and format depends on the system parameter being retrieved.</param>
-        /// <param name="fWinIni">Flags specifying how the user profile is to be updated.</param>
-        /// <returns>True if the function succeeds; otherwise, false.</returns>
-        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool SystemParametersInfo(Shared.SPI uiAction, uint uiParam, StringBuilder pvParam, Shared.SPIF fWinIni);
 
         /// <summary>
         /// Logger instance for recording application events and debugging information.
@@ -72,7 +49,7 @@ namespace WorldMapWallpaper
         {
             log.Info("Getting the current desktop wallpaper name.");
             var sbWPFN = new StringBuilder(256);
-            SystemParametersInfo(Shared.SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, Shared.SPIF.None);
+            NativeMethods.SystemParametersInfo(SPI.SPI_GETDESKWALLPAPER, 256, sbWPFN, SPIF.None);
             var wpfn = sbWPFN.ToString();
             log.Debug($"The current desktop wallpaper name is \"{wpfn ?? "null"}\".");
 
@@ -255,7 +232,7 @@ namespace WorldMapWallpaper
             if (!timeOut)
             {
                 log.Info("Setting the desktop wallpaper.");
-                SystemParametersInfo(Shared.SPI.SPI_SETDESKWALLPAPER, 0, fileName, Shared.SPIF.UpdateIniFile | Shared.SPIF.SendChange);
+                NativeMethods.SystemParametersInfo(SPI.SPI_SETDESKWALLPAPER, 0, fileName, SPIF.UpdateIniFile | SPIF.SendChange);
 
                 // Refresh the desktop to ensure wallpaper updates immediately
                 log.Debug("Refreshing the desktop.");

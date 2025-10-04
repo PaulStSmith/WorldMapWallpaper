@@ -1,4 +1,6 @@
 using WorldMapWallpaper.Shared;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace WorldMapWallpaper.Settings;
 
@@ -8,45 +10,105 @@ namespace WorldMapWallpaper.Settings;
 /// </summary>
 public partial class SettingsForm : Form
 {
+    /// <summary>
+    /// Monitors wallpaper changes to detect when the user switches away from our wallpaper.
+    /// </summary>
     private WallpaperMonitor? _wallpaperMonitor;
-    private ColorScheme _colorScheme = null!;
+    
+    /// <summary>
+    /// The color scheme used for theming the form controls based on the current system theme.
+    /// </summary>
+    private readonly ColorScheme _colorScheme = null!;
+    
+    /// <summary>
+    /// The system tray icon that provides quick access to settings and wallpaper updates.
+    /// </summary>
+    private NotifyIcon? _notifyIcon;
+    
+    /// <summary>
+    /// Indicates whether the form should start minimized to the system tray.
+    /// </summary>
+    private readonly bool _minimizeToTray = false;
 
+    /// <summary>
+    /// Checkbox control for enabling/disabling the International Space Station overlay.
+    /// </summary>
     private CheckBox _issCheckBox = null!;
+    
+    /// <summary>
+    /// Checkbox control for enabling/disabling the time zones overlay.
+    /// </summary>
     private CheckBox _timeZonesCheckBox = null!;
+    
+    /// <summary>
+    /// Checkbox control for enabling/disabling the political map overlay.
+    /// </summary>
     private CheckBox _politicalMapCheckBox = null!;
+    
+    /// <summary>
+    /// Combo box for selecting the wallpaper update frequency.
+    /// </summary>
     private ComboBox _updateIntervalCombo = null!;
+    
+    /// <summary>
+    /// Button for immediately updating the wallpaper with current settings.
+    /// </summary>
     private Button _previewButton = null!;
+    
+    /// <summary>
+    /// Button for resetting all settings to their default values.
+    /// </summary>
     private Button _resetButton = null!;
+    
+    /// <summary>
+    /// Button for closing the settings form.
+    /// </summary>
     private Button _closeButton = null!;
+    
+    /// <summary>
+    /// Label displaying the current status of the scheduled task.
+    /// </summary>
     private Label _taskStatusLabel = null!;
 
-    public SettingsForm()
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SettingsForm"/> class.
+    /// </summary>
+    /// <param name="minimizeToTray">If true, the form starts minimized to the system tray; otherwise, it appears normally.</param>
+    public SettingsForm(bool minimizeToTray = false)
     {
+        _minimizeToTray = minimizeToTray;
+        
         // Get current theme before initializing components
         _colorScheme = ThemeManager.GetCurrentColorScheme();
         
         InitializeComponent();
+        InitializeFormSettings();
         ApplyTheme();
         InitializeControls();
+        InitializeTrayIcon();
         LoadSettings();
         StartWallpaperMonitoring();
+        
+        if (_minimizeToTray)
+        {
+            this.WindowState = FormWindowState.Minimized;
+            this.ShowInTaskbar = false;
+            this.Visible = false;
+        }
     }
 
-    private void InitializeComponent()
+    /// <summary>
+    /// Applies additional form settings after designer initialization.
+    /// </summary>
+    private void InitializeFormSettings()
     {
-        this.Text = "World Map Wallpaper Settings";
-        this.Size = new Size(480, 520);
-        this.StartPosition = FormStartPosition.CenterScreen;
-        this.FormBorderStyle = FormBorderStyle.FixedDialog;
-        this.MaximizeBox = false;
-        this.MinimizeBox = false;
-        this.ShowIcon = true;
-        this.ShowInTaskbar = true;
-
         // Set modern appearance
         this.Font = new Font("Segoe UI", 9F);
     }
 
+    /// <summary>
+    /// Applies the current theme colors to the form's background and text.
+    /// </summary>
     private void ApplyTheme()
     {
         // Apply theme to the form
@@ -54,6 +116,10 @@ public partial class SettingsForm : Form
         this.ForeColor = _colorScheme.PrimaryTextColor;
     }
 
+    /// <summary>
+    /// Creates and configures all the form controls including labels, checkboxes, buttons, and group boxes.
+    /// Applies theming and sets up event handlers for user interactions.
+    /// </summary>
     private void InitializeControls()
     {
         var padding = 20;
@@ -171,7 +237,7 @@ public partial class SettingsForm : Form
         };
 
         // Populate combo box
-        foreach (UpdateInterval interval in Enum.GetValues<UpdateInterval>())
+        foreach (var interval in Enum.GetValues<UpdateInterval>())
         {
             _updateIntervalCombo.Items.Add(new ComboBoxItem(interval.ToDisplayString(), interval));
         }
@@ -237,21 +303,6 @@ public partial class SettingsForm : Form
         _resetButton.Click += OnResetClick;
         this.Controls.Add(_resetButton);
 
-        var personalizationButton = new Button
-        {
-            Text = "Windows Settings",
-            Location = new Point(padding + 160, currentY),
-            Size = new Size(140, 30),
-            Font = new Font("Segoe UI", 9F),
-            BackColor = _colorScheme.ButtonBackColor,
-            ForeColor = _colorScheme.PrimaryTextColor,
-            FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand
-        };
-        personalizationButton.FlatAppearance.BorderSize = 1;
-        personalizationButton.FlatAppearance.BorderColor = _colorScheme.BorderColor;
-        personalizationButton.Click += OnPersonalizationClick;
-        this.Controls.Add(personalizationButton);
 
         _closeButton = new Button
         {
@@ -266,10 +317,126 @@ public partial class SettingsForm : Form
         };
         _closeButton.FlatAppearance.BorderSize = 1;
         _closeButton.FlatAppearance.BorderColor = _colorScheme.BorderColor;
-        _closeButton.Click += (s, e) => this.Close();
+        _closeButton.Click += (s, e) => MinimizeToTray();
         this.Controls.Add(_closeButton);
     }
 
+    /// <summary>
+    /// Initializes the system tray icon with a context menu for quick access to application functions.
+    /// Sets up menu items for showing settings, updating wallpaper, and exiting the application.
+    /// </summary>
+    private void InitializeTrayIcon()
+    {
+        _notifyIcon = new NotifyIcon
+        {
+            Icon = LoadEmbeddedIcon(),
+            Text = "World Map Wallpaper",
+            Visible = true
+        };
+
+        var contextMenu = new ContextMenuStrip();
+        
+        var showSettingsItem = new ToolStripMenuItem("Settings")
+        {
+            Font = new Font(contextMenu.Font, FontStyle.Bold)
+        };
+        showSettingsItem.Click += (s, e) => ShowSettingsWindow();
+        contextMenu.Items.Add(showSettingsItem);
+        
+        contextMenu.Items.Add(new ToolStripSeparator());
+        
+        var updateNowItem = new ToolStripMenuItem("Update Wallpaper Now");
+        updateNowItem.Click += (s, e) => _ = UpdateWallpaperNow();
+        contextMenu.Items.Add(updateNowItem);
+        
+        contextMenu.Items.Add(new ToolStripSeparator());
+        
+        var exitItem = new ToolStripMenuItem("Exit");
+        exitItem.Click += (s, e) => ExitApplication();
+        contextMenu.Items.Add(exitItem);
+        
+        _notifyIcon.ContextMenuStrip = contextMenu;
+        _notifyIcon.DoubleClick += (s, e) => ShowSettingsWindow();
+    }
+
+    /// <summary>
+    /// Shows the settings window by bringing it to the foreground and restoring it from the system tray.
+    /// </summary>
+    private void ShowSettingsWindow()
+    {
+        this.Visible = true;
+        this.ShowInTaskbar = true;
+        this.WindowState = FormWindowState.Normal;
+        this.BringToFront();
+        this.Activate();
+    }
+
+    private void MinimizeToTray()
+    {
+        this.WindowState = FormWindowState.Minimized;
+        this.ShowInTaskbar = false;
+        this.Visible = false;
+    }
+
+    /// <summary>
+    /// Loads the application icon from embedded resources.
+    /// </summary>
+    /// <returns>The application icon, or a system icon as fallback.</returns>
+    private static Icon LoadEmbeddedIcon()
+    {
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var resourceName = "WorldMapWallpaper.Settings.Resources.AppIcon.ico";
+            
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream != null)
+            {
+                return new Icon(stream);
+            }
+        }
+        catch
+        {
+            // Fall back to system icon if embedded resource loading fails
+        }
+        
+        return SystemIcons.Application;
+    }
+
+    /// <summary>
+    /// Asynchronously updates the wallpaper immediately and displays notification balloons to inform the user of the progress and result.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task UpdateWallpaperNow()
+    {
+        try
+        {
+            _notifyIcon!.ShowBalloonTip(2000, "World Map Wallpaper", "Updating wallpaper...", ToolTipIcon.Info);
+            
+            var success = TaskManager.RunTaskNow();
+            if (success)
+                _notifyIcon.ShowBalloonTip(2000, "World Map Wallpaper", "Wallpaper updated successfully!", ToolTipIcon.Info);
+            else
+                _notifyIcon.ShowBalloonTip(2000, "World Map Wallpaper", "Failed to update wallpaper", ToolTipIcon.Warning);
+        }
+        catch (Exception ex)
+        {
+            _notifyIcon!.ShowBalloonTip(2000, "World Map Wallpaper", $"Error: {ex.Message}", ToolTipIcon.Error);
+        }
+    }
+
+    /// <summary>
+    /// Exits the application completely by disposing of the tray icon and calling Application.Exit().
+    /// </summary>
+    private void ExitApplication()
+    {
+        _notifyIcon?.Dispose();
+        Application.Exit();
+    }
+
+    /// <summary>
+    /// Loads the current settings from the application configuration and updates the form controls to reflect these values.
+    /// </summary>
     private void LoadSettings()
     {
         _issCheckBox.Checked = Shared.Settings.ShowISS;
@@ -277,7 +444,7 @@ public partial class SettingsForm : Form
         _politicalMapCheckBox.Checked = Shared.Settings.ShowPoliticalMap;
 
         var currentInterval = Shared.Settings.UpdateInterval;
-        for (int i = 0; i < _updateIntervalCombo.Items.Count; i++)
+        for (var i = 0; i < _updateIntervalCombo.Items.Count; i++)
         {
             if (_updateIntervalCombo.Items[i] is ComboBoxItem item && 
                 item.Value.Equals(currentInterval))
@@ -288,6 +455,9 @@ public partial class SettingsForm : Form
         }
     }
 
+    /// <summary>
+    /// Saves the current form control values to the application settings and updates the task schedule if necessary.
+    /// </summary>
     private void SaveSettings()
     {
         Shared.Settings.ShowISS = _issCheckBox.Checked;
@@ -301,16 +471,34 @@ public partial class SettingsForm : Form
         }
     }
 
+    /// <summary>
+    /// Event handler that is triggered when any of the visual element checkboxes are changed.
+    /// Automatically saves the new settings.
+    /// </summary>
+    /// <param name="sender">The checkbox control that triggered the event.</param>
+    /// <param name="e">Event arguments containing information about the change.</param>
     private void OnSettingChanged(object? sender, EventArgs e)
     {
         SaveSettings();
     }
 
+    /// <summary>
+    /// Event handler that is triggered when the update interval combo box selection changes.
+    /// Automatically saves the new settings and updates the task schedule.
+    /// </summary>
+    /// <param name="sender">The combo box control that triggered the event.</param>
+    /// <param name="e">Event arguments containing information about the selection change.</param>
     private void OnUpdateIntervalChanged(object? sender, EventArgs e)
     {
         SaveSettings();
     }
 
+    /// <summary>
+    /// Event handler for the preview/update button click. Temporarily disables the button, 
+    /// saves current settings, attempts to update the wallpaper, and provides user feedback.
+    /// </summary>
+    /// <param name="sender">The button control that was clicked.</param>
+    /// <param name="e">Event arguments for the click event.</param>
     private async void OnPreviewClick(object? sender, EventArgs e)
     {
         _previewButton.Enabled = false;
@@ -338,6 +526,12 @@ public partial class SettingsForm : Form
         }
     }
 
+    /// <summary>
+    /// Event handler for the reset button click. Prompts the user for confirmation 
+    /// before resetting all settings to their default values.
+    /// </summary>
+    /// <param name="sender">The button control that was clicked.</param>
+    /// <param name="e">Event arguments for the click event.</param>
     private void OnResetClick(object? sender, EventArgs e)
     {
         var result = MessageBox.Show(
@@ -353,31 +547,11 @@ public partial class SettingsForm : Form
         }
     }
 
-    private void OnPersonalizationClick(object? sender, EventArgs e)
-    {
-        try
-        {
-            // Open Windows Personalization settings
-            var success = PersonalizationProvider.OpenPersonalizationSettings();
-            if (!success)
-            {
-                MessageBox.Show(
-                    "Unable to open Windows Personalization settings. You can access it manually through Settings > Personalization > Background.",
-                    "Information",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                $"Error opening Windows Settings: {ex.Message}",
-                "Error",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
-    }
 
+    /// <summary>
+    /// Initializes and starts the wallpaper monitoring service to detect when the user changes 
+    /// to a different wallpaper provider.
+    /// </summary>
     private void StartWallpaperMonitoring()
     {
         _wallpaperMonitor = new WallpaperMonitor();
@@ -385,26 +559,69 @@ public partial class SettingsForm : Form
         _wallpaperMonitor.Start();
     }
 
+    /// <summary>
+    /// Event handler that is triggered when the system wallpaper changes. If the user has switched 
+    /// to a different wallpaper, disables the automatic update task and shows a notification.
+    /// </summary>
+    /// <param name="isOurWallpaper">True if the current wallpaper is from this application; false if the user switched to a different wallpaper.</param>
     private void OnWallpaperChanged(bool isOurWallpaper)
     {
         if (!isOurWallpaper)
         {
-            // User switched to a different wallpaper - disable our task and exit
+            // User switched to a different wallpaper - disable our task
             TaskManager.EnableTask(false);
             Shared.Settings.IsActive = false;
             
-            // Close on UI thread
+            // Show notification instead of closing
             if (InvokeRequired)
-                Invoke(new Action(() => this.Close()));
+                Invoke(new Action(() => _notifyIcon?.ShowBalloonTip(3000, "World Map Wallpaper", "Automatic updates disabled - you switched to a different wallpaper", ToolTipIcon.Info)));
             else
-                this.Close();
+                _notifyIcon?.ShowBalloonTip(3000, "World Map Wallpaper", "Automatic updates disabled - you switched to a different wallpaper", ToolTipIcon.Info);
         }
     }
 
+    /// <summary>
+    /// Overrides the base SetVisibleCore method to prevent the form from becoming visible 
+    /// when it should be minimized to the system tray.
+    /// </summary>
+    /// <param name="value">The visibility state to set.</param>
+    protected override void SetVisibleCore(bool value)
+    {
+        // Prevent the form from becoming visible at design time or when minimized to tray
+        base.SetVisibleCore(!_minimizeToTray && value);
+    }
+
+    /// <summary>
+    /// Overrides the form closing behavior to minimize to the system tray instead of actually closing 
+    /// when the user clicks the close button.
+    /// </summary>
+    /// <param name="e">Event arguments that can be used to cancel the closing operation.</param>
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        // Minimize to tray instead of closing when user clicks X
+        if (e.CloseReason == CloseReason.UserClosing)
+        {
+            e.Cancel = true;
+            this.WindowState = FormWindowState.Minimized;
+            this.ShowInTaskbar = false;
+            this.Visible = false;
+        }
+        else
+        {
+            base.OnFormClosing(e);
+        }
+    }
+
+    /// <summary>
+    /// Overrides the form closed event to properly dispose of resources including 
+    /// the wallpaper monitor and system tray icon.
+    /// </summary>
+    /// <param name="e">Event arguments containing information about how the form was closed.</param>
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _wallpaperMonitor?.Stop();
         _wallpaperMonitor?.Dispose();
+        _notifyIcon?.Dispose();
         base.OnFormClosed(e);
     }
 
@@ -436,12 +653,27 @@ public partial class SettingsForm : Form
         return "Task status unknown";
     }
 
-    // Helper class for ComboBox items
+    /// <summary>
+    /// Helper class for ComboBox items that associates a display string with an underlying value.
+    /// </summary>
+    /// <param name="display">The text to display in the combo box.</param>
+    /// <param name="value">The underlying value associated with this item.</param>
     private class ComboBoxItem(string display, object value)
     {
+        /// <summary>
+        /// Gets the display text for this combo box item.
+        /// </summary>
         public string Display { get; } = display;
+        
+        /// <summary>
+        /// Gets the underlying value associated with this combo box item.
+        /// </summary>
         public object Value { get; } = value;
 
+        /// <summary>
+        /// Returns the display string for this combo box item.
+        /// </summary>
+        /// <returns>The display text.</returns>
         public override string ToString() => Display;
     }
 }

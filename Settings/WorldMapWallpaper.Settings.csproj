@@ -16,4 +16,8 @@
     <ProjectReference Include="..\Shared\WorldMapWallpaper.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\AppIcon.ico" />
+  </ItemGroup>
+
 </Project>

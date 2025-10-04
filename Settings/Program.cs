@@ -11,12 +11,15 @@ internal static class Program
     /// The main entry point for the application.
     /// </summary>
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        using var form = new SettingsForm();
+        // Check if we should start minimized to tray (for startup launch)
+        var minimizeToTray = args.Contains("--minimized") || args.Contains("/minimized");
+
+        using var form = new SettingsForm(minimizeToTray);
         Application.Run(form);
     }
 }

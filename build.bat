@@ -51,11 +51,41 @@ echo.
 
 REM Clean previous build
 echo [1/5] Cleaning previous build...
+if exist "ImagePainter\Install.exe" (
+    del /q "ImagePainter\Install.exe"
+    echo ImagePainter\Install.exe deleted.
+) else (
+    echo ImagePainter\Install.exe not found.
+)
+if exist "ImagePainter\obj\" (
+    rmdir /s /q "ImagePainter\obj\"
+    echo ImagePainter\obj build folder cleaned.
+) else (
+    echo ImagePainter\obj build folder not found, skipping clean.
+)
+if exist "Settings\obj\" (
+    rmdir /s /q "Settings\obj\"
+    echo Settings\obj build folder cleaned.
+) else (
+    echo Settings\obj build folder not found, skipping clean.
+)
 if exist "ImagePainter\bin\publish-64\" (
     rmdir /s /q "ImagePainter\bin\publish-64\"
-    echo Previous build cleaned.
+    echo Publishing folder cleaned.
 ) else (
-    echo No previous build found.
+    echo Publishing folder not found, skipping clean.
+)
+if exist "ImagePainter\bin\%cfg%\" (
+    rmdir /s /q "ImagePainter\bin\%cfg%\"
+    echo ImagePainter\bin\%cfg% build folder cleaned.
+) else (
+    echo ImagePainter\bin\%cfg% build folder not found, skipping clean.
+)
+if exist "Settings\bin\%cfg%\" (
+    rmdir /s /q "Settings\bin\%cfg%\"
+    echo Settings\bin\%cfg% build folder cleaned.
+) else (
+    echo Settings\bin\%cfg% build folder not found, skipping clean.
 )
 echo.
 
@@ -75,11 +105,6 @@ if !ERRORLEVEL! neq 0 (
 )
 echo Publish completed successfully.
 echo.
-
-if /i "%cfg%"=="Debug" (
-    echo Debug build completed. No GitHub release will be created.
-    exit /b 0
-)
 
 REM Check if NSIS is available
 echo [4/5] Checking for NSIS installer...
@@ -114,6 +139,12 @@ echo ===============================================
 echo              BUILD COMPLETED
 echo ===============================================
 echo.
+
+if /i "%cfg%"=="Debug" (
+    echo Debug build completed. No GitHub release will be created.
+    exit /b 0
+)
+
 echo Published files: %PROJECT_DIR%ImagePainter\bin\publish-64\
 if not exist "%PROJECT_DIR%ImagePainter\Install.exe" (
     echo WARNING: Install.exe not found.
