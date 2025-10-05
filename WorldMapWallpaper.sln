@@ -14,11 +14,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		CLAUDE.md = CLAUDE.md
 		DateVersioning.targets = DateVersioning.targets
 		README.md = README.md
+		USER_MANUAL.md = USER_MANUAL.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapWallpaper.Settings", "Settings\WorldMapWallpaper.Settings.csproj", "{0DB1B0DF-DE56-4F27-AB3D-2E2DE624867F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapWallpaper.Shared", "Shared\WorldMapWallpaper.Shared.csproj", "{695A4473-5F0C-42AD-9334-0B71F82F1F6B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Screenshots", "Screenshots", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,6 +44,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {F513A80D-6C3E-4D3E-AED0-AC5EF2522984}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {890DAC3E-5193-47BE-BBB9-E93E82654259}

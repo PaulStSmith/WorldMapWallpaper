@@ -16,7 +16,7 @@
 
 World Map Wallpaper is a dynamic desktop wallpaper application that displays a real-time world map showing:
 - **Day/Night Terminator Line**: Visual representation of where it's day and night on Earth
-- **International Space Station (ISS) Tracking**: Real-time position and orbital path
+- **International Space Station (ISS) Tracking**: Professional satellite tracking using SGP4 orbital mechanics with TLE data
 - **World Time Zone Clocks**: 24 analog clocks showing local time around the globe
 - **Political Boundaries**: Country borders and geographical features
 
@@ -42,7 +42,6 @@ The installer will automatically:
 - ✅ Install the main wallpaper application
 - ✅ Install the settings configuration tool
 - ✅ Create Windows scheduled tasks for automatic updates
-- ✅ Register the application with Windows Event Log
 - ✅ Set up the Settings app to start with Windows (minimized to system tray)
 - ✅ Generate your first dynamic wallpaper
 - ✅ Launch the settings interface for initial configuration
@@ -83,14 +82,14 @@ Configure what appears on your wallpaper:
 
 - ☑️ **Show International Space Station position and orbit**
   - Displays the ISS's current location as a small icon
-  - Shows the orbital path as a curved line
-  - Updates in real-time based on NASA data
+  - Shows the orbital path with directional arrows
+  - Uses professional SGP4 calculations with TLE data from CelesTrak
+  - Works offline with cached orbital data (updated weekly)
 
 - ☑️ **Show time zone clocks around the world**
   - 24 analog clocks positioned globally
   - Each clock shows the local time for that region
-  - Available in 32px and 48px sizes
-
+  
 - ☑️ **Show political boundaries and country borders**
   - Overlay of world political map
   - Country borders and geographical boundaries
@@ -155,7 +154,7 @@ The application shows helpful balloon notifications for:
 
 | Frequency | Best For | Description |
 |-----------|----------|-------------|
-| **5 minutes** | Maximum accuracy | Perfect terminator line tracking, highest ISS accuracy |
+| **5 minutes** | Maximum accuracy | Perfect terminator line tracking, most current ISS position |
 | **10 minutes** | Balanced performance | Good accuracy with reasonable resource usage |
 | **15 minutes** | Standard use | Recommended for most users |
 | **30 minutes** | Light usage | Good for older computers or minimal updates |
@@ -195,9 +194,10 @@ The application intelligently monitors your wallpaper:
 - **Check scheduled tasks**: Open Windows Task Scheduler and look for "World Map Wallpaper" task
 
 #### ISS Position Not Showing
-- **Check internet connection**: ISS data requires internet access
-- **Firewall settings**: Ensure the app can access NASA APIs
-- **Wait for next update**: ISS data is cached and updates periodically
+- **Check TLE data**: ISS uses cached orbital data (updates weekly)
+- **Internet connection**: Required only for TLE data updates from CelesTrak
+- **Wait for calculation**: Position is calculated using orbital mechanics
+- **Fallback API**: Open Notify API used if TLE calculations fail
 
 #### Performance Issues
 - **Reduce update frequency**: Choose longer intervals (30min or 1 hour)
@@ -208,8 +208,8 @@ The application intelligently monitors your wallpaper:
 
 The application creates detailed logs for troubleshooting:
 - **Location**: `C:\Program Files\WorldMapWallpaper\log\`
-- **Files**: Application logs with timestamps
-- **Windows Event Log**: Check Windows Event Viewer under "Application" logs
+- **Files**: Application logs with timestamps and debug information
+- **TLE Cache**: `%APPDATA%\WorldMapWallpaper\iss_tle_cache.json` - Orbital data cache
 
 ### Getting Help
 
@@ -239,9 +239,9 @@ If you encounter issues:
 The uninstaller will:
 - ✅ Remove all application files
 - ✅ Delete scheduled tasks
-- ✅ Remove Windows Event Log entries
 - ✅ Clean up registry entries
 - ✅ Remove startup registration
+- ✅ Clear TLE data cache
 
 ### Manual Cleanup (if needed)
 If automatic uninstallation fails:
@@ -282,6 +282,7 @@ The application creates a sophisticated scheduled task with multiple triggers:
 | **Settings App** | `C:\Program Files\WorldMapWallpaper\WorldMapWallpaper.Settings.exe` |
 | **Configuration** | Windows Registry + Application Settings |
 | **Log Files** | `C:\Program Files\WorldMapWallpaper\log\` |
+| **TLE Data Cache** | `%APPDATA%\WorldMapWallpaper\iss_tle_cache.json` |
 | **Generated Wallpapers** | `%USERPROFILE%\Pictures\` (WorldMap01.jpg, WorldMap02.jpg) |
 
 ---
@@ -296,7 +297,7 @@ The application creates a sophisticated scheduled task with multiple triggers:
 ### Visual Customization
 - **Enable all elements** for the most informative wallpaper
 - **Disable political boundaries** for a cleaner look
-- **Keep ISS tracking** for educational and visual interest
+- **Keep ISS tracking** for educational value and accurate orbital visualization
 
 ### System Integration
 - **Keep the app in system tray** for easy access

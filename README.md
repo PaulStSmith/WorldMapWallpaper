@@ -7,7 +7,7 @@ A comprehensive Windows desktop wallpaper suite that generates and manages dynam
 ### Core Wallpaper Engine
 - **Real-time day/night cycle** - Calculates and displays the actual solar terminator line based on current UTC time and sophisticated astronomical calculations
 - **Timezone visualization** - Shows 24 analog clocks across time zones with accurate local times
-- **ISS tracking** - Displays current position and orbital path of the International Space Station with sunlight status
+- **Professional ISS tracking** - Uses SGP4 orbital mechanics with TLE data for precise satellite positioning and orbital path prediction
 - **Political boundaries** - Optional overlay of country borders and political maps
 - **High-performance rendering** - Optimized image processing with Gaussian blur for smooth day/night transitions
 
@@ -39,7 +39,7 @@ The application performs sophisticated astronomical and rendering calculations:
 2. **Terminator Curve Generation** - Calculates day/night boundary using spherical trigonometry 
 3. **Alpha Mask Creation** - Generates smooth transition masks with Gaussian blur
 4. **Layer Composition** - Composites day earth, night earth, political boundaries, and overlays
-5. **ISS Orbital Tracking** - Fetches real-time position data and calculates sunlight status
+5. **ISS Orbital Tracking** - Uses SGP4 propagator with TLE data from CelesTrak for professional satellite tracking
 6. **Timezone Clock Rendering** - Draws 24 analog clocks showing accurate local times
 7. **Desktop Integration** - Sets result as wallpaper using Windows SystemParametersInfo API
 
@@ -48,7 +48,6 @@ The application performs sophisticated astronomical and rendering calculations:
 ### Automatic Installation (Recommended)
 The installer handles complete setup including:
 - Deployment to `C:\Program Files\WorldMapWallpaper`
-- Windows Event Log source creation
 - Scheduled task configuration with multiple triggers
 - Initial wallpaper generation
 - Settings interface launch
@@ -65,7 +64,7 @@ WorldMapWallpaper.exe --settings
 - **Framework**: .NET 9.0 Runtime (embedded in installer)
 - **Memory**: 512MB RAM minimum
 - **Storage**: 50MB disk space
-- **Network**: Internet connection optional (for ISS tracking)
+- **Network**: Internet connection optional (for TLE data updates)
 
 ## 📍 File Locations
 
@@ -74,13 +73,13 @@ WorldMapWallpaper.exe --settings
 | **Application** | `C:\Program Files\WorldMapWallpaper\` |
 | **Generated wallpapers** | `%USERPROFILE%\Pictures\WorldMap01.jpg` / `WorldMap02.jpg` |
 | **Application logs** | `C:\Program Files\WorldMapWallpaper\log\WorldMapWallpaper.log` |
-| **System logs** | Windows Event Log → "World Map Wallpaper Source" |
+| **TLE cache** | `%APPDATA%\WorldMapWallpaper\iss_tle_cache.json` |
 | **Settings storage** | Windows Registry (application-managed) |
 
 ## 🔧 Advanced Configuration
 
 ### Update Frequency Options
-- **Every 5 minutes** - Maximum accuracy for rapidly changing ISS position
+- **Every 5 minutes** - Maximum accuracy for rapidly changing ISS position and terminator
 - **Every 10 minutes** - Balanced performance and accuracy
 - **Every 15 minutes** - Recommended for most users
 - **Every 30 minutes** - Light system impact
@@ -109,26 +108,27 @@ If manual task scheduler configuration is needed:
 ### Key Technologies
 - **Astronomical calculations** - Solar position and terminator curve algorithms
 - **Image processing** - Multi-threaded operations with unsafe code optimization
-- **Windows integration** - Task Scheduler, Event Log, SystemParametersInfo APIs
-- **Network communication** - ISS position fetching with offline fallback
+- **Windows integration** - Task Scheduler, SystemParametersInfo APIs
+- **Satellite tracking** - SGP4 orbital mechanics with TLE data from CelesTrak
 - **Theme detection** - Windows registry monitoring for dark/light mode
 
 ### Performance Features
 - **Parallel processing** - Multi-core utilization for image operations
 - **Memory management** - Proper disposal patterns for graphics resources
 - **File conflict avoidance** - Alternating output filenames
-- **Caching strategy** - ISS data persistence for offline operation
+- **Caching strategy** - TLE data persistence for offline satellite tracking
 
-## 🌐 External APIs
+## 🌐 External Data Sources
 
-- **ISS Position**: [Open Notify API](http://api.open-notify.org/iss-now.json)
-- **Backup ISS Data**: Cached locally for offline operation
+- **TLE Data**: [CelesTrak](https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle) - Official satellite orbital elements
+- **Fallback ISS API**: [Open Notify API](http://api.open-notify.org/iss-now.json) - Used if TLE calculations fail
+- **Offline Operation**: TLE data cached locally for up to 1 week
 
 ## 🎨 Example Output
 
-![World map with day/night cycle](https://paulstsmith.github.io/images/worldTimeMap.jpg)
+![World map with day/night cycle](Screenshots/WorldMapWallpaper.jpg)
 
-*Real-time wallpaper showing current day/night terminator, timezone clocks, ISS position and orbit, with political boundaries overlay.*
+*Real-time wallpaper showing current day/night terminator, timezone clocks, ISS position with directional orbital path, and political boundaries overlay.*
 
 ## 🏗️ Development
 

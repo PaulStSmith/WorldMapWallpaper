@@ -1,6 +1,4 @@
-﻿
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace WorldMapWallpaper
 {
@@ -51,14 +49,10 @@ namespace WorldMapWallpaper
                 using var writer = new StreamWriter(LogFile, true);
                 writer.WriteLine(log);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                using (var eventLog = new EventLog("Application"))
-                {
-                    eventLog.Source = "World Map Wallpaper Source";
-                    eventLog.WriteEntry($"Error writing log: {ex.Message}", EventLogEntryType.Error);
-                }
-                Environment.Exit(1);
+                // If we can't write to the log file, just continue silently
+                // This prevents the application from crashing due to logging issues
             }
         }
     }

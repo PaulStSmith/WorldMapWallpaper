@@ -362,9 +362,11 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Installer output folder
+# Custom exclusions
+CLAUDE.md
 /Install.exe
 .claude/
+CuttingFloor/
 
 # Executable files
 *.exe

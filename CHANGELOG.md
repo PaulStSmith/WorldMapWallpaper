@@ -2,9 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2025-09-30
+## [Unreleased] - 2025-10-05
+
+### Added
+- **Implement professional SGP4-based ISS tracking with TLE data**
+  - Replaced Open Notify API with Two-Line Element (TLE) orbital mechanics
+  - Added TLE data fetching from CelesTrak with automatic caching
+  - Implemented SGP4 orbital propagator for accurate satellite position calculations
+  - Added comprehensive orbital mathematics utilities (GMST, coordinate transforms)
+  - Enhanced ISS tracking accuracy with professional satellite tracking algorithms
+  - Added offline operation capability when TLE data is cached
+  - Improved orbital velocity calculations (now ~27,571 km/h, matching real ISS speed)
+
+- **Enhanced orbit visualization with directional indicators**
+  - Limited orbit display to 100 points (50 before/after current position)
+  - Added small directional arrows along orbital path every 10 segments
+  - Improved orbit path clarity with focused time span (20 minutes total)
+  - Enhanced visual feedback showing ISS movement direction
 
 ### Changed
+- **Remove Windows Event Log functionality**
+  - Eliminated unused Windows Event Log integration from application
+  - Removed System.Diagnostics.EventLog package dependency
+  - Simplified Logger.cs to use file-only logging with graceful error handling
+  - Updated installer to remove Event Log source creation and cleanup
+  - Reduced application complexity and removed unnecessary Windows dependencies
+
+- **Improve ISS position calculation accuracy**
+  - Fixed Greenwich Mean Sidereal Time (GMST) calculation using correct IAU-82 formula
+  - Corrected coordinate transformation from ECI to geodetic coordinates
+  - Resolved 105° longitude error that placed ISS over wrong hemisphere
+  - Enhanced time synchronization for real-time position accuracy
+
+### Technical Improvements
 - **Simplify GitHub release notes in build script**
   - Replaced detailed release notes with a concise summary
   - Highlighted key features: day/night cycle and ISS tracking

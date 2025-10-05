@@ -4,7 +4,6 @@
 ; This script creates an installer for the World Map Wallpaper application using NSIS 
 ; (Nullsoft Scriptable Install System). The installer handles:
 ; - Application file deployment from published builds
-; - Windows Event Log source registration
 ; - Scheduled task creation for automatic wallpaper updates
 ; - Windows shell integration and startup registration
 ; - Proper uninstallation with cleanup
@@ -16,15 +15,6 @@
 !include "MUI.nsh"
 !include "LogicLib.nsh"
 
-; ================================================================================================
-; Event Log Configuration
-; ================================================================================================
-; Define the application name and event log source for Windows Event Log integration
-!define EVENT_LOG "Application"
-!define EVENT_SOURCE "World Map Wallpaper Source"
-
-; Define the Registry path for the event log source registration
-!define REG_PATH "SYSTEM\CurrentControlSet\Services\EventLog\${EVENT_LOG}\${EVENT_SOURCE}"
 
 ; ================================================================================================
 ; Build Configuration - SIMPLIFIED FOR PUBLISHED BUILDS
@@ -112,8 +102,6 @@ Section "Installer Section" SecInstaller
     File /a /r "${PUBLISH_BUILD_PATH}\*.*"
     File "License.txt"
 
-    ; Create the Windows Event Log source for application logging
-    Call CreateEventSource
 
     ; Create the Windows scheduled task for automatic wallpaper updates
     Call CreateSchedulerTask
@@ -146,23 +134,6 @@ Section "Installer Section" SecInstaller
     LogText "Installation complete."
 SectionEnd
 
-; ------------------------------------------------------------------------------------------------
-; Function: CreateEventSource
-; Description: Creates a Windows Event Log source for the application to enable proper logging
-;              to the Windows Event Log system
-; Registry Keys: Creates entries under HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Application
-; ------------------------------------------------------------------------------------------------
-Function CreateEventSource
-    LogText "Creating event source..."
-
-    ; Create the registry key for the event source
-    ; EventMessageFile points to the main executable for event message resolution
-    WriteRegStr HKLM "${REG_PATH}" "EventMessageFile" "$INSTDIR\${MAIN_APP_EXE}"
-    ; TypesSupported = 7 allows Information (1), Warning (2), and Error (4) events
-    WriteRegDWORD HKLM "${REG_PATH}" "TypesSupported" 7
-
-    LogText "Event source created."
-FunctionEnd
 
 ; ------------------------------------------------------------------------------------------------
 ; Function: CreateSchedulerTask
@@ -304,7 +275,6 @@ FunctionEnd
 ; Cleanup Operations:
 ;   - Removes all installed files and directories
 ;   - Deletes scheduled tasks
-;   - Removes Windows Event Log source
 ;   - Cleans up all registry entries
 ; ------------------------------------------------------------------------------------------------
 Section "Uninstall" SecUninstaller
@@ -325,9 +295,6 @@ Section "Uninstall" SecUninstaller
     pop $0
     LogText "Exit Code: $0"
 
-    ; Remove the Windows Event Log source registration
-    LogText "Removing event source..."
-    DeleteRegKey HKLM "${REG_PATH}"
     
     ; Remove all registry entries created during installation
     LogText "Removing registry entries..."
