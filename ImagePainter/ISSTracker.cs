@@ -1,11 +1,13 @@
 using Newtonsoft.Json;
 using System.Drawing;
 using WorldMapWallpaper.Properties;
+using WorldMapWallpaper.Shared;
 
 namespace WorldMapWallpaper
 {
     /// <summary>
-    /// Tracks the International Space Station position using the Open Notify API.<br/>
+    /// Tracks the International Space Station position using SGP4 orbital calculations with TLE data.<br/>
+    /// Falls back to Open Notify API if SGP4 calculations fail.<br/>
     /// Provides functionality to fetch ISS coordinates, calculate sunlight status,
     /// and render the ISS position on a world map.
     /// </summary>
@@ -25,6 +27,27 @@ namespace WorldMapWallpaper
         {
             Timeout = TimeSpan.FromSeconds(5)
         };
+
+        /// <summary>
+        /// TLE data service for fetching orbital elements.
+        /// </summary>
+        private readonly TleDataService _tleService = new(msg => logger.Debug(msg));
+
+        /// <summary>
+        /// Current satellite record from TLE data.
+        /// </summary>
+        private static SatelliteRecord? _satelliteRecord;
+
+        /// <summary>
+        /// When TLE data was last updated.
+        /// </summary>
+        private static DateTime _tleLastUpdated = DateTime.MinValue;
+
+        /// <summary>
+        /// TLE update interval in hours (default: 168 hours = 1 week).
+        /// </summary>
+        private const double TLE_UPDATE_INTERVAL_HOURS = 168;
+
 
         /// <summary>
         /// Cache file path for storing last known ISS position.
@@ -263,14 +286,23 @@ namespace WorldMapWallpaper
         }
 
         /// <summary>
-        /// Gets the current ISS position from the Open Notify API or predicts from cached data.
+        /// Gets the current ISS position using SGP4 calculations, with fallback to API and cached data.
         /// </summary>
         /// <returns>
-        /// The current ISS position or null if neither API nor cached data is available.
+        /// The current ISS position or null if all methods fail.
         /// </returns>
         private ISSPosition? GetCurrentPosition()
         {
-            // Try to get fresh data from API first
+            // 1. Try SGP4 method first (most accurate)
+            var sgp4Position = GetPositionFromSgp4();
+            if (sgp4Position != null)
+            {
+                logger.Debug("ISS position calculated using SGP4");
+                return sgp4Position;
+            }
+
+            // 2. Fallback to API method
+            logger.Debug("SGP4 failed, falling back to API method");
             var apiPosition = TryGetPositionFromAPI();
             if (apiPosition != null)
             {
@@ -279,9 +311,99 @@ namespace WorldMapWallpaper
                 return apiPosition;
             }
 
-            // API failed, try to predict from cached data
+            // 3. Last resort: predict from cached data
             logger.Debug("API failed, attempting to predict ISS position from cached data.");
             return PredictPositionFromCache();
+        }
+
+        /// <summary>
+        /// Gets ISS position using SGP4 orbital calculations.
+        /// </summary>
+        /// <returns>ISS position from SGP4 or null if failed.</returns>
+        private ISSPosition? GetPositionFromSgp4()
+        {
+            try
+            {
+                // Update TLE data if needed
+                if (!UpdateTleDataIfNeeded())
+                {
+                    logger.Debug("TLE data not available for SGP4 calculations");
+                    return null;
+                }
+
+                if (_satelliteRecord == null)
+                {
+                    logger.Debug("No satellite record available");
+                    return null;
+                }
+
+                // Calculate current position using basic orbital propagator
+                var currentTime = DateTime.UtcNow;
+                var positionVelocity = BasicOrbitalPropagator.Propagate(_satelliteRecord, currentTime);
+                
+                // Convert ECI to geodetic coordinates
+                var gmst = OrbitalMath.GreenwichMeanSiderealTime(currentTime);
+                var geodetic = CoordinateTransforms.EciToGeodetic(positionVelocity.Position, gmst);
+                
+                // Convert radians to degrees
+                var latDegrees = OrbitalMath.RadiansToDegrees(geodetic.Latitude);
+                var lonDegrees = OrbitalMath.RadiansToDegrees(geodetic.Longitude);
+                
+                logger.Debug($"SGP4 calculated position: Lat={latDegrees:F6}, Lon={lonDegrees:F6}, Alt={geodetic.Altitude:F1} km");
+                
+                return new ISSPosition(latDegrees, lonDegrees, currentTime, false); // Sunlight calculated later
+            }
+            catch (Exception ex)
+            {
+                logger.Debug($"SGP4 calculation failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Updates TLE data if needed (weekly refresh).
+        /// </summary>
+        /// <returns>True if TLE data is available, false otherwise.</returns>
+        private bool UpdateTleDataIfNeeded()
+        {
+            // Check if we need to update TLE data
+            var hoursSinceUpdate = (DateTime.UtcNow - _tleLastUpdated).TotalHours;
+            
+            if (_satelliteRecord == null || hoursSinceUpdate > TLE_UPDATE_INTERVAL_HOURS)
+            {
+                logger.Debug($"Updating TLE data (hours since last update: {hoursSinceUpdate:F1})");
+                
+                try
+                {
+                    // Try to get TLE data (from cache first, then network)
+                    var tleData = _tleService.GetIssTleAsync().GetAwaiter().GetResult();
+                    
+                    if (tleData != null)
+                    {
+                        _satelliteRecord = SatelliteRecord.ParseFromTle(tleData);
+                        if (_satelliteRecord != null)
+                        {
+                            _tleLastUpdated = DateTime.UtcNow;
+                            logger.Debug($"TLE data updated successfully: {_satelliteRecord}");
+                            return true;
+                        }
+                        else
+                        {
+                            logger.Debug("Failed to parse TLE data");
+                        }
+                    }
+                    else
+                    {
+                        logger.Debug("Failed to fetch TLE data");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Debug($"TLE update failed: {ex.Message}");
+                }
+            }
+            
+            return _satelliteRecord != null;
         }
 
         /// <summary>
@@ -605,7 +727,7 @@ namespace WorldMapWallpaper
         }
 
         /// <summary>
-        /// Draws the ISS orbital path on the map.
+        /// Draws the ISS orbital path on the map using SGP4 calculations when available.
         /// </summary>
         /// <param name="graphics">Graphics context to draw on.</param>
         /// <param name="currentPosition">Current ISS position.</param>
@@ -618,40 +740,84 @@ namespace WorldMapWallpaper
                 var orbitPoints = new List<PointF>();
                 
                 // Orbit visualization parameters
-                const int orbitSegments = 100;
-                const double orbitSpan = 30.0; // ±15 minutes from current
+                const int orbitSegments = 50; // Total points (50 before + 50 after current position)
+                const double minutesBeforeCurrent = 10.0; // Points before current position
+                const double minutesAfterCurrent = 10.0;  // Points after current position
                 
-                // Calculate what phase of the orbit the ISS is currently in using shared methods
-                var isAscending = DetermineOrbitalDirection(currentPosition);
-                var currentPhase = CalculateOrbitalPhase(currentPosition, isAscending);
-                
-                // Calculate orbit points
-                for (var i = 0; i < orbitSegments; i++)
+                // Try to use SGP4 for accurate orbit calculation
+                if (_satelliteRecord != null)
                 {
-                    // Time offset from current position (-15 to +15 minutes)
-                    var minutesFromNow = (i - orbitSegments / 2.0) * (orbitSpan / orbitSegments);
-
-                    // Orbital phase at this time using shared method
-                    var phaseChange = CalculatePhaseChange(minutesFromNow);
-                    var phaseAtTime = currentPhase + phaseChange;
-
-                    // Calculate latitude using shared method
-                    var latitude = CalculateLatitudeFromPhase(phaseAtTime);
+                    logger.Debug("Drawing orbit using SGP4 calculations");
                     
-                    // Calculate longitude using shared method
-                    var longitude = CalculateLongitudeFromTimeOffset(currentPosition.Longitude, minutesFromNow);
+                    // Calculate orbit points using SGP4
+                    for (var i = 0; i < orbitSegments; i++)
+                    {
+                        // Time offset from current position (-10 to +10 minutes)
+                        var minutesFromNow = -minutesBeforeCurrent + (i * (minutesBeforeCurrent + minutesAfterCurrent) / (orbitSegments - 1));
+                        var targetTime = DateTime.UtcNow.AddMinutes(minutesFromNow);
+                        
+                        try
+                        {
+                            // Calculate position using basic orbital propagator
+                            var positionVelocity = BasicOrbitalPropagator.Propagate(_satelliteRecord, targetTime);
+                            var gmst = OrbitalMath.GreenwichMeanSiderealTime(targetTime);
+                            var geodetic = CoordinateTransforms.EciToGeodetic(positionVelocity.Position, gmst);
+                            
+                            var latitude = OrbitalMath.RadiansToDegrees(geodetic.Latitude);
+                            var longitude = OrbitalMath.RadiansToDegrees(geodetic.Longitude);
+                            
+                            var point = GetPixelCoordinates(
+                                new ISSPosition(latitude, longitude, targetTime, false), 
+                                mapWidth, mapHeight);
+                            orbitPoints.Add(new PointF(point.X, point.Y));
+                        }
+                        catch
+                        {
+                            // Skip this point if calculation fails
+                            continue;
+                        }
+                    }
+                }
+                else
+                {
+                    // Fallback to old orbital mechanics approximation
+                    logger.Debug("Drawing orbit using approximation (SGP4 not available)");
                     
-                    var point = GetPixelCoordinates(
-                        new ISSPosition(latitude, longitude, DateTime.UtcNow, false), 
-                        mapWidth, mapHeight);
-                    orbitPoints.Add(new PointF(point.X, point.Y));
+                    // Calculate what phase of the orbit the ISS is currently in using shared methods
+                    var isAscending = DetermineOrbitalDirection(currentPosition);
+                    var currentPhase = CalculateOrbitalPhase(currentPosition, isAscending);
+                    
+                    // Calculate orbit points using approximation
+                    for (var i = 0; i < orbitSegments; i++)
+                    {
+                        // Time offset from current position (-50 to +50 minutes)
+                        var minutesFromNow = -minutesBeforeCurrent + (i * (minutesBeforeCurrent + minutesAfterCurrent) / (orbitSegments - 1));
+
+                        // Orbital phase at this time using shared method
+                        var phaseChange = CalculatePhaseChange(minutesFromNow);
+                        var phaseAtTime = currentPhase + phaseChange;
+
+                        // Calculate latitude using shared method
+                        var latitude = CalculateLatitudeFromPhase(phaseAtTime);
+                        
+                        // Calculate longitude using shared method
+                        var longitude = CalculateLongitudeFromTimeOffset(currentPosition.Longitude, minutesFromNow);
+                        
+                        var point = GetPixelCoordinates(
+                            new ISSPosition(latitude, longitude, DateTime.UtcNow, false), 
+                            mapWidth, mapHeight);
+                        orbitPoints.Add(new PointF(point.X, point.Y));
+                    }
                 }
                 
-                // Draw orbit segments
+                // Draw orbit segments and direction arrows
                 if (orbitPoints.Count > 1)
                 {
                     using var orbitPen = new Pen(Color.FromArgb(80, Color.Cyan), 2);
                     orbitPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
+                    
+                    using var arrowPen = new Pen(Color.FromArgb(120, Color.Yellow), 1);
+                    using var arrowBrush = new SolidBrush(Color.FromArgb(120, Color.Yellow));
                     
                     for (var i = 1; i < orbitPoints.Count; i++)
                     {
@@ -663,15 +829,86 @@ namespace WorldMapWallpaper
                         if (deltaX < mapWidth / 2) // Only draw if points are close
                         {
                             graphics.DrawLine(orbitPen, p1, p2);
+                            
+                            // Draw direction arrows every 10 segments
+                            if (i % 10 == 0)
+                            {
+                                DrawOrbitDirectionArrow(graphics, arrowPen, arrowBrush, p1, p2);
+                            }
                         }
                     }
                     
-                    logger.Debug($"Drew ISS orbit with {orbitPoints.Count} segments, current phase: {currentPhase:F1}°");
+                    logger.Debug($"Drew ISS orbit with {orbitPoints.Count} segments and direction arrows");
                 }
             }
             catch (Exception ex)
             {
                 logger.Debug($"Error drawing ISS orbit: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Draws a small direction arrow on the orbital path.
+        /// </summary>
+        /// <param name="graphics">Graphics context to draw on.</param>
+        /// <param name="pen">Pen for drawing the arrow outline.</param>
+        /// <param name="brush">Brush for filling the arrow.</param>
+        /// <param name="p1">Start point of the orbit segment.</param>
+        /// <param name="p2">End point of the orbit segment.</param>
+        private static void DrawOrbitDirectionArrow(Graphics graphics, Pen pen, Brush brush, PointF p1, PointF p2)
+        {
+            try
+            {
+                // Calculate direction vector
+                var dx = p2.X - p1.X;
+                var dy = p2.Y - p1.Y;
+                var length = Math.Sqrt(dx * dx + dy * dy);
+                
+                if (length < 2) return; // Skip very short segments
+                
+                // Normalize direction vector
+                var dirX = dx / length;
+                var dirY = dy / length;
+                
+                // Arrow parameters
+                const float arrowSize = 4.0f;
+                const float arrowAngle = 0.5f; // radians (~30 degrees)
+                
+                // Calculate arrow position (midpoint of segment)
+                var arrowX = (p1.X + p2.X) / 2;
+                var arrowY = (p1.Y + p2.Y) / 2;
+                
+                // Calculate arrow tip
+                var tipX = arrowX + dirX * arrowSize;
+                var tipY = arrowY + dirY * arrowSize;
+                
+                // Calculate arrow wings (perpendicular to direction)
+                var perpX = -dirY;
+                var perpY = dirX;
+                
+                var wingLength = arrowSize * Math.Sin(arrowAngle);
+                var backLength = arrowSize * Math.Cos(arrowAngle);
+                
+                var leftWingX = arrowX - dirX * backLength + perpX * wingLength;
+                var leftWingY = arrowY - dirY * backLength + perpY * wingLength;
+                
+                var rightWingX = arrowX - dirX * backLength - perpX * wingLength;
+                var rightWingY = arrowY - dirY * backLength - perpY * wingLength;
+                
+                // Draw arrow as small triangle
+                var arrowPoints = new PointF[]
+                {
+                    new PointF((float)tipX, (float)tipY),
+                    new PointF((float)leftWingX, (float)leftWingY),
+                    new PointF((float)rightWingX, (float)rightWingY)
+                };
+                
+                graphics.FillPolygon(brush, arrowPoints);
+                graphics.DrawPolygon(pen, arrowPoints);
+            }
+            catch
+            {
+                // Skip arrow if calculation fails
             }
         }
 
