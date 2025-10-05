@@ -1,6 +1,11 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+SET LF=^
+
+
+:: The above two blank lines are required for the LF variable to work correctly
+
 echo ===============================================
 echo     WorldMapWallpaper Build and Package
 echo ===============================================
@@ -51,42 +56,12 @@ echo.
 
 REM Clean previous build
 echo [1/5] Cleaning previous build...
-if exist "ImagePainter\Install.exe" (
-    del /q "ImagePainter\Install.exe"
-    echo ImagePainter\Install.exe deleted.
-) else (
-    echo ImagePainter\Install.exe not found.
-)
-if exist "ImagePainter\obj\" (
-    rmdir /s /q "ImagePainter\obj\"
-    echo ImagePainter\obj build folder cleaned.
-) else (
-    echo ImagePainter\obj build folder not found, skipping clean.
-)
-if exist "Settings\obj\" (
-    rmdir /s /q "Settings\obj\"
-    echo Settings\obj build folder cleaned.
-) else (
-    echo Settings\obj build folder not found, skipping clean.
-)
-if exist "ImagePainter\bin\publish-64\" (
-    rmdir /s /q "ImagePainter\bin\publish-64\"
-    echo Publishing folder cleaned.
-) else (
-    echo Publishing folder not found, skipping clean.
-)
-if exist "ImagePainter\bin\%cfg%\" (
-    rmdir /s /q "ImagePainter\bin\%cfg%\"
-    echo ImagePainter\bin\%cfg% build folder cleaned.
-) else (
-    echo ImagePainter\bin\%cfg% build folder not found, skipping clean.
-)
-if exist "Settings\bin\%cfg%\" (
-    rmdir /s /q "Settings\bin\%cfg%\"
-    echo Settings\bin\%cfg% build folder cleaned.
-) else (
-    echo Settings\bin\%cfg% build folder not found, skipping clean.
-)
+call :delFile "ImagePainter\Install.exe"
+call :delFolder "Settings\obj\"
+call :delFolder "ImagePainter\obj\"
+call :delFolder "Settings\bin\%cfg%\"
+call :delFolder "ImagePainter\bin\%cfg%\"
+call :delFolder "ImagePainter\bin\publish-64\"
 echo.
 
 echo [2/5] Building solutions...
@@ -139,11 +114,6 @@ echo ===============================================
 echo              BUILD COMPLETED
 echo ===============================================
 echo.
-
-if /i "%cfg%"=="Debug" (
-    echo Debug build completed. No GitHub release will be created.
-    exit /b 0
-)
 
 echo Published files: %PROJECT_DIR%ImagePainter\bin\publish-64\
 if not exist "%PROJECT_DIR%ImagePainter\Install.exe" (
@@ -230,6 +200,11 @@ if !ERRORLEVEL! neq 0 (
     set "RELEASE_NOTES=WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
 ) else (
     echo Dynamic release notes generated successfully.
+)
+
+if /i "%cfg%"=="Debug" (
+    echo Debug build completed. No GitHub release will be created.
+    exit /b 0
 )
 
 gh release create "v!FINAL_VERSION!" "%PROJECT_DIR%ImagePainter\Install.exe" --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "!RELEASE_NOTES!"
@@ -494,7 +469,7 @@ for /f "usebackq delims=" %%i in ("%PROJECT_DIR%temp_changes.txt") do (
 
 REM Call Claude Code to generate release notes
 echo Calling Claude Code to generate professional release notes...
-claude --no-markdown "Create a professional GitHub release description for WorldMapWallpaper v%version%. Recent commits: %CHANGES% Make it engaging, user-focused, and under 300 words. Include: version highlights, installation instructions (Download and run Install.exe), and system requirements (Windows 10 1809+). Focus on benefits like real-time day/night visualization, ISS tracking with SGP4, timezone clocks, and dynamic wallpaper updates." > "%PROJECT_DIR%temp_release.txt" 2>nul
+claude -p exit"Create a professional GitHub release description for WorldMapWallpaper v%version%. DO NOT use emojis, only ASCII chars are ok. Markdown OK. Recent commits: %CHANGES% Make it engaging, user-focused, and under 300 words. Include: version highlights, installation instructions (Download and run Install.exe), and system requirements (Windows 10 1809+). Focus on benefits like real-time day/night visualization, ISS tracking with SGP4, timezone clocks, and dynamic wallpaper updates." > "%PROJECT_DIR%temp_release.txt" 2>nul
 
 if !ERRORLEVEL! neq 0 (
     echo Failed to generate release notes with Claude Code
@@ -505,11 +480,13 @@ if !ERRORLEVEL! neq 0 (
 
 REM Read the generated release notes (handle multi-line)
 set "RELEASE_NOTES="
-for /f "usebackq delims=" %%i in ("%PROJECT_DIR%temp_release.txt") do (
+for /f "usebackq delims=" %%i in (`findstr /n "^" "%PROJECT_DIR%temp_release.txt"`) do (
+    set "line=%%i"
+    set "line=!line:*:=!"
     if defined RELEASE_NOTES (
-        set "RELEASE_NOTES=!RELEASE_NOTES! %%i"
+        set "RELEASE_NOTES=!RELEASE_NOTES!!LF!!line!"
     ) else (
-        set "RELEASE_NOTES=%%i"
+        set "RELEASE_NOTES=!line!"
     )
 )
 
@@ -527,4 +504,23 @@ echo =====================================
 echo !RELEASE_NOTES!
 echo =====================================
 
+exit /b 0
+
+
+:delFile
+if exist "%~1" (
+    del /q "%~1"
+    echo "%~1" deleted.
+) else (
+    echo "%~1" not found.
+)
+exit /b 0
+
+:delFolder
+if exist "%~1" (
+    rmdir /s /q "%~1"
+    echo "%~1" folder deleted.
+) else (
+    echo "%~1" folder not found.
+)
 exit /b 0
