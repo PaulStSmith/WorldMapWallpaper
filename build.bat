@@ -223,7 +223,16 @@ if !ERRORLEVEL! equ 0 (
 )
             
 :create_release
-gh release create "v!FINAL_VERSION!" "%PROJECT_DIR%ImagePainter\Install.exe" --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
+REM Generate dynamic release notes using Claude Code
+call :generate_release_notes "!FINAL_VERSION!"
+if !ERRORLEVEL! neq 0 (
+    echo WARNING: Failed to generate dynamic release notes, using fallback...
+    set "RELEASE_NOTES=WorldMapWallpaper Release v!FINAL_VERSION! with real-time day/night cycle visualization and ISS tracking. Download and run Install.exe to install. Requires Windows 10 version 1809 or later."
+) else (
+    echo Dynamic release notes generated successfully.
+)
+
+gh release create "v!FINAL_VERSION!" "%PROJECT_DIR%ImagePainter\Install.exe" --title "WorldMapWallpaper v!FINAL_VERSION!" --notes "!RELEASE_NOTES!"
             
 if !ERRORLEVEL! neq 0 (
     echo ERROR: Failed to create GitHub release.
@@ -455,3 +464,67 @@ if exist "ImagePainter\WorldMapWallpaper.csproj" (
     exit /b 1
 )
 exit /b %ERRORLEVEL%
+
+:generate_release_notes
+set "version=%~1"
+echo Generating dynamic release notes for version %version%...
+
+REM Check if Claude Code CLI is available
+where claude >nul 2>nul
+if !ERRORLEVEL! neq 0 (
+    echo Claude Code CLI not found. Please install Claude Code CLI first.
+    echo Visit: https://claude.ai/code for installation instructions
+    echo Using fallback release notes...
+    exit /b 1
+)
+
+REM Get recent git commits since last release
+echo Collecting recent changes...
+git log --oneline --since="2 weeks ago" --pretty=format:"- %%s" > "%PROJECT_DIR%temp_changes.txt" 2>nul
+if !ERRORLEVEL! neq 0 (
+    echo Warning: Could not get git log, using basic changes...
+    echo - Latest improvements and bug fixes > "%PROJECT_DIR%temp_changes.txt"
+)
+
+REM Read changes into variable (handle multi-line)
+set "CHANGES="
+for /f "usebackq delims=" %%i in ("%PROJECT_DIR%temp_changes.txt") do (
+    set "CHANGES=!CHANGES!%%i "
+)
+
+REM Call Claude Code to generate release notes
+echo Calling Claude Code to generate professional release notes...
+claude --no-markdown "Create a professional GitHub release description for WorldMapWallpaper v%version%. Recent commits: %CHANGES% Make it engaging, user-focused, and under 300 words. Include: version highlights, installation instructions (Download and run Install.exe), and system requirements (Windows 10 1809+). Focus on benefits like real-time day/night visualization, ISS tracking with SGP4, timezone clocks, and dynamic wallpaper updates." > "%PROJECT_DIR%temp_release.txt" 2>nul
+
+if !ERRORLEVEL! neq 0 (
+    echo Failed to generate release notes with Claude Code
+    del "%PROJECT_DIR%temp_changes.txt" 2>nul
+    del "%PROJECT_DIR%temp_release.txt" 2>nul
+    exit /b 1
+)
+
+REM Read the generated release notes (handle multi-line)
+set "RELEASE_NOTES="
+for /f "usebackq delims=" %%i in ("%PROJECT_DIR%temp_release.txt") do (
+    if defined RELEASE_NOTES (
+        set "RELEASE_NOTES=!RELEASE_NOTES! %%i"
+    ) else (
+        set "RELEASE_NOTES=%%i"
+    )
+)
+
+REM Clean up temporary files
+del "%PROJECT_DIR%temp_changes.txt" 2>nul
+del "%PROJECT_DIR%temp_release.txt" 2>nul
+
+if "!RELEASE_NOTES!"=="" (
+    echo Generated release notes are empty
+    exit /b 1
+)
+
+echo Generated release notes preview:
+echo =====================================
+echo !RELEASE_NOTES!
+echo =====================================
+
+exit /b 0
